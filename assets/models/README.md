@@ -3,21 +3,19 @@
 This directory should contain the following model files:
 
 1. `hand_landmarker.task` - MediaPipe hand landmark detection model
-2. `hand_sign_model.tflite` - TFLite model trained to recognize 28 outputs (a-z letters, space, delete) from hand landmarks.
+2. `asl_landmark_model.tflite` - TFLite model trained to recognize 28 outputs (a-z letters, space, delete) from hand landmarks.
 
-## Integration Instructions
+## Build Instructions
 
 ### hand_landmarker.task
 
-The app is prepared for using MediaPipe's hand_landmarker.task but requires manual integration:
+The app is prepared for using MediaPipe's `hand_landmarker.task` but requires manual integration:
 
-1. Obtain the MediaPipe hand_landmarker.task binary file
+1. Obtain the MediaPipe `hand_landmarker.task` binary file
 2. Place it in this directory
 3. The app will automatically copy it to the appropriate location when it first runs
 
-**Note:** Until the hand_landmarker.task file is provided, the app will use mock data for demonstration purposes.
-
-### hand_sign_model.tflite
+### asl_landmark_model.tflite
 
 This model processes the hand landmarks to recognize sign language characters:
 
@@ -46,5 +44,3 @@ The app uses a two-stage approach:
 - Optimized for mobile performance
 - Target inference time: <50ms
 - Recognition rate: 3-4 inferences per second
-
-For demonstration purposes, the app includes a placeholder mechanism that simulates model output. 
