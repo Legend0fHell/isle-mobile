@@ -28,6 +28,7 @@ class _DetectionScreenState extends State<DetectionScreen>
 
   bool _isCameraPermissionGranted = false;
   bool _isProcessing = false;
+
   RecognitionResult? _lastRecognition;
   StreamSubscription? _subscription;
 
@@ -73,8 +74,8 @@ class _DetectionScreenState extends State<DetectionScreen>
   }
 
   Future<void> _recognitionHandsign(landmarksResult) async {
-    AppLogger.info('[UI] Landmarks detected: $landmarksResult');
-    if (landmarksResult == null) {
+    if (landmarksResult == null ||
+        (landmarksResult['landmarks'] as List<dynamic>).isEmpty) {
       // No landmarks detected, clear recognition
       _updateRecognitionState(null);
     } else {
@@ -338,7 +339,7 @@ class _DetectionScreenState extends State<DetectionScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'MediaPipe: GPU', // TODO: Update this based on actual model used
+                    '${_handLandmarkService.delegateType} | ${_handLandmarkService.inferenceTime}ms',
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

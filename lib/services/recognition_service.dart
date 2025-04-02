@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart';
+import 'package:tflite_flutter/tflite_flutter.dart';
 import '../models/recognition_model.dart';
 import '../utils/logger.dart';
 
@@ -63,8 +63,9 @@ class RecognitionService {
 
   Interpreter? _interpreter;
   bool _isInitialized = false;
-  final _throttler = Throttler(duration: const Duration(milliseconds: 250));
+  final _throttler = Throttler(duration: const Duration(milliseconds: 100));
 
+  static const String modelFilename = 'asl_landmark_model.tflite';
   // Initialize in background
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -78,16 +79,29 @@ class RecognitionService {
     }
   }
 
+  Future<File> getFile(String fileName) async {
+    final appDir = await getApplicationSupportDirectory();
+    final appPath = appDir.path;
+    final fileOnDevice = File('$appPath/$modelFilename');
+    AppLogger.info('TFLite On device File path: $appPath/$modelFilename');
+    final rawAssetFile = await rootBundle.load(fileName);
+    // check if rawAssetFile is empty
+    if (rawAssetFile.lengthInBytes == 0) {
+      AppLogger.error('Error: rawAssetFile is empty');
+      throw Exception('Error: rawAssetFile is empty');
+    }
+    final rawBytes = rawAssetFile.buffer.asUint8List();
+    await fileOnDevice.writeAsBytes(rawBytes, flush: true);
+    return fileOnDevice;
+  }
+
   // Separate method for async initialization
   Future<void> _initializeAsync() async {
-    // Use compute for heavy file operations
-    final modelPath = await compute(
-      _getModelPathIsolate,
-      "asl_landmark_model.tflite",
-    );
-    final modelFile = File(modelPath);
+    // Get the model file
+    try {
+      final modelPath = 'assets/models/$modelFilename';
+      final modelFile = await getFile(modelPath);
 
-    if (await modelFile.exists()) {
       // Create interpreter options
       final interpreterOptions = InterpreterOptions()..threads = 4;
 
@@ -97,20 +111,15 @@ class RecognitionService {
         options: interpreterOptions,
       );
       AppLogger.info('Successfully loaded TFLite model from: $modelPath');
-    } else {
-      AppLogger.error('Sign language model file not found at: $modelPath');
+
+      _isInitialized = true;
+    } catch (e) {
+      AppLogger.error('Error preparing TFLite model: $e');
+      return;
     }
-
-    _isInitialized = true;
   }
 
-  // Static method to get model path in isolate
-  static Future<String> _getModelPathIsolate(String modelName) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    return join(appDir.path, modelName);
-  }
-
-  Future<RecognitionResult?> processHandLandmarks(landmarks) async {
+  Future<RecognitionResult?> processHandLandmarks(featuresObj) async {
     // Start initialization if needed, but don't wait for it to complete
     if (!_isInitialized) {
       unawaited(initialize());
@@ -123,18 +132,19 @@ class RecognitionService {
           AppLogger.error('TFLite interpreter not initialized');
           return null;
         }
-
-        // Use the real TFLite model in a separate isolate
-        final input = _preprocessLandmarks(landmarks);
+        // Use TFLite model in a separate isolate
+        final input = _preprocessFeatures(featuresObj);
         final outputList = List<double>.filled(numOutputs, 0.0);
+        AppLogger.info('Stage2 Input: $input');
 
         // Run inference in isolate to avoid blocking the UI
         final result = await compute(
           _runInferenceInIsolate,
           _InferenceParams(input, outputList, _interpreter!),
         );
-
-        return _processOutput(result);
+        final output = _processOutput(result);
+        AppLogger.info('Stage2 Output: $output.toString()');
+        return output;
       } catch (e) {
         AppLogger.error('Error processing hand landmarks (phase 2)', e);
         return null;
@@ -142,18 +152,32 @@ class RecognitionService {
     });
   }
 
-  List<List<double>> _preprocessLandmarks(landmarks) {
-    // Get the flat list of normalized landmark coordinates
-    final flatLandmarks = landmarks.toFloatList();
+  List<List<double>> _preprocessFeatures(featuresObj) {
+    // featuresObj is a json object, there exists an array called 'landmarks', consisting of 21 objects, each with index, x, y
+    // Convert landmarks to a flat list of doubles, first 21 items are x, next 21 are y
 
-    // MediaPipe hand landmarks are already normalized to [0,1]
-    // For this example, we're assuming the model expects a 1x(numLandmarks*2) input
-    // where each landmark has x, y coordinates
-    return [flatLandmarks];
+    // first extract the array landmarks out of featuresObj
+    final landmarks = featuresObj['landmarks'] as List<dynamic>;
+
+    // Flatten the landmarks into a single list
+    final featuresModel = List<double>.filled(
+      numLandmarks * coordsPerLandmark,
+      0.0,
+    );
+    // featuresModel, first 21 items are x (landmark_0_x, landmark_1_x, ...), next 21 are y (landmark_0_y, landmark_1_y, ...)
+    for (int i = 0; i < numLandmarks; i++) {
+      featuresModel[i] = landmarks[i]['x'] as double;
+    }
+    for (int i = 0; i < numLandmarks; i++) {
+      featuresModel[numLandmarks + i] = landmarks[i]['y'] as double;
+    }
+
+    return [featuresModel];
   }
 
   RecognitionResult _processOutput(List<double> output) {
     // Find the index of the highest confidence value
+    AppLogger.info('Stage2 Output: $output');
     double maxConfidence = 0.0;
     int maxIndex = 0;
 
@@ -167,7 +191,6 @@ class RecognitionService {
     return RecognitionResult(
       character: outputs[maxIndex],
       confidence: maxConfidence,
-      delegateType: 'CPU', // TODO: Update this if using GPU delegate
     );
   }
 

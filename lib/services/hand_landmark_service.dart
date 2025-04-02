@@ -86,6 +86,8 @@ class HandLandmarkService extends ChangeNotifier {
   );
 
   bool _isInitialized = false;
+  String _delegateType = "Waiting";
+  int _inferenceTime = 0;
   dynamic _currentLandmarks;
   Completer<void>? _initializingCompleter;
 
@@ -103,6 +105,9 @@ class HandLandmarkService extends ChangeNotifier {
   // Getters
   bool get isInitialized => _isInitialized;
   dynamic get currentLandmarks => _currentLandmarks;
+  String get delegateType => _delegateType;
+
+  int get inferenceTime => _inferenceTime;
 
   Future<void> initialize() async {
     // If already initialized, return immediately
@@ -170,13 +175,13 @@ class HandLandmarkService extends ChangeNotifier {
           final result = call.arguments;
           final jsonObject = jsonDecode(result);
 
-          if (_currentLandmarks != jsonObject) {
+          _delegateType = jsonObject['delegate'] as String;
+          _inferenceTime = jsonObject['inferenceTime'] as int;
+          if (_currentLandmarks == null ||
+              _currentLandmarks['landmarks'] != jsonObject['landmarks']) {
             _currentLandmarks = jsonObject;
             notifyListeners();
           }
-          // _channel.invokeMethod('onLandmarksDetectedUI', {
-          //   'result': jsonObject,
-          // });
           break;
         default:
           AppLogger.error('Unknown method called: ${call.method}');

@@ -1,13 +1,8 @@
 class RecognitionResult {
   final String character;
   final double confidence;
-  final String delegateType;
 
-  RecognitionResult({
-    this.character = 'A',
-    this.confidence = 0.99,
-    this.delegateType = 'CPU',
-  });
+  RecognitionResult({this.character = 'A', this.confidence = 0.99});
 
   bool get isDelete => character == 'delete';
   bool get isSpace => character == 'space';

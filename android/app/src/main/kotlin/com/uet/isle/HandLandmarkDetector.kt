@@ -171,7 +171,6 @@ class HandLandmarkDetector(
             // If any error occurs during parsing, return an empty result
             Log.e(TAG, "Error parsing landmarks: ${e.message}")
             json.put("landmarks", JSONArray())
-            json.put("delegate", if (isUsingGPU) "GPU" else "CPU")
             json.put("error", e.message)
         }
         
@@ -184,9 +183,6 @@ class HandLandmarkDetector(
         val height = inputImg.height
         val width = inputImg.width
         val jsonResult = convertResultToJson(result, inferenceTime, height, width)
-        if (result.landmarks().isEmpty()) {
-            return
-        }
         handLandmarkerHelperListener?.onResults(jsonResult)
     }
 
