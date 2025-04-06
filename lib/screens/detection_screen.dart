@@ -85,7 +85,7 @@ class _DetectionScreenState extends State<DetectionScreen>
         landmarksResult,
       );
 
-      if (result != null && result.confidence > 0.7 && mounted) {
+      if (result != null && result.confidence > 0.59 && mounted) {
         _updateRecognitionState(result);
 
         // Update the UI asynchronously
@@ -97,6 +97,9 @@ class _DetectionScreenState extends State<DetectionScreen>
             ).addCharacter(result);
           }
         });
+      } else {
+        // No valid recognition result, clear recognition
+        _updateRecognitionState(null);
       }
     }
   }
