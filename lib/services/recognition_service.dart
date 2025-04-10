@@ -28,7 +28,8 @@ Future<List<double>> _runInferenceInIsolate(_InferenceParams params) async {
 
 class RecognitionService {
   static const int numLandmarks = 21; // MediaPipe provides 21 hand landmarks
-  static const int coordsPerLandmark = 2; // Each landmark has x, y coordinates
+  static const int coordsPerLandmark =
+      3; // Each landmark has x, y, z coordinates
   static const int numOutputs = 28; // 26 letters + space + delete
   static const List<String> outputs = [
     'a',
@@ -57,8 +58,8 @@ class RecognitionService {
     'x',
     'y',
     'z',
-    'space',
     'delete',
+    'space',
   ];
 
   Interpreter? _interpreter;
@@ -170,6 +171,9 @@ class RecognitionService {
     }
     for (int i = 0; i < numLandmarks; i++) {
       featuresModel[numLandmarks + i] = landmarks[i]['y'] as double;
+    }
+    for (int i = 0; i < numLandmarks; i++) {
+      featuresModel[2 * numLandmarks + i] = landmarks[i]['z'] as double;
     }
 
     return [featuresModel];
