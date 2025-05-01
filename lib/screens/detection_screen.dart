@@ -192,20 +192,7 @@ class _DetectionScreenState extends State<DetectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign Language Recognition'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.cameraswitch),
-            onPressed: () async {
-              await _cameraService.toggleCamera();
-            },
-          ),
-        ],
-      ),
-      body: _buildBody(),
-    );
+    return Scaffold(body: _buildBody());
   }
 
   Widget _buildBody() {
@@ -392,6 +379,12 @@ class _DetectionScreenState extends State<DetectionScreen>
                         IconButton(
                           icon: const Icon(Icons.clear),
                           onPressed: () => service.clearText(),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.cameraswitch),
+                          onPressed: () async {
+                            await _cameraService.toggleCamera();
+                          },
                         ),
                       ],
                     ),
