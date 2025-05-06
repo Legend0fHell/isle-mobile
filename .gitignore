@@ -90,3 +90,9 @@ app.*.map.json
 
 # env 
 .env
+
+# please no other platforms
+/linux
+/macos
+/web
+/windows

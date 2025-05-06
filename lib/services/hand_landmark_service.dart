@@ -86,10 +86,12 @@ class HandLandmarkService extends ChangeNotifier {
   );
 
   bool _isInitialized = false;
+  bool _isDisposed = false;
   String _delegateType = "Waiting";
   int _inferenceTime = 0;
   dynamic _currentLandmarks;
   Completer<void>? _initializingCompleter;
+  final List<VoidCallback> _pendingListeners = [];
 
   // --- Rate Limiting Members ---
   DateTime _lastProcessedTime = DateTime.now();
@@ -103,13 +105,41 @@ class HandLandmarkService extends ChangeNotifier {
   static const String modelFilename = 'hand_landmarker.task';
 
   // Getters
-  bool get isInitialized => _isInitialized;
-  dynamic get currentLandmarks => _currentLandmarks;
-  String get delegateType => _delegateType;
+  bool get isInitialized => _isInitialized && !_isDisposed;
+  dynamic get currentLandmarks => _isDisposed ? null : _currentLandmarks;
+  String get delegateType => _isDisposed ? "Disposed" : _delegateType;
+  int get inferenceTime => _isDisposed ? 0 : _inferenceTime;
 
-  int get inferenceTime => _inferenceTime;
+  @override
+  void addListener(VoidCallback listener) {
+    if (_isDisposed) {
+      AppLogger.warn('Attempted to add listener to disposed HandLandmarkService');
+      return;
+    }
+    super.addListener(listener);
+    _pendingListeners.add(listener);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    if (_isDisposed) {
+      return;
+    }
+    super.removeListener(listener);
+    _pendingListeners.remove(listener);
+  }
 
   Future<void> initialize() async {
+    // If disposed, reset state for re-initialization
+    if (_isDisposed) {
+      _isDisposed = false;
+      _isInitialized = false;
+      _currentLandmarks = null;
+      _delegateType = "Waiting";
+      _inferenceTime = 0;
+      AppLogger.info('Re-initializing previously disposed HandLandmarkService');
+    }
+
     // If already initialized, return immediately
     if (_isInitialized) return;
 
@@ -129,7 +159,7 @@ class HandLandmarkService extends ChangeNotifier {
       _isInitialized = true;
     } catch (e) {
       AppLogger.error('Error initializing HandLandmarkService', e);
-      _isInitialized = true;
+      _isInitialized = false;
     }
 
     // Return immediately while initialization continues in background
@@ -138,7 +168,13 @@ class HandLandmarkService extends ChangeNotifier {
 
   // Actual initialization work, runs in background
   Future<void> _initializeAsync() async {
+    // Return immediately if the service was disposed
+    if (_isDisposed) return;
+
     try {
+      // Clear previous method handler if any
+      _channel.setMethodCallHandler(null);
+
       // Prepare the asset file for the native side
       final assetPath = 'assets/models/$modelFilename';
 
@@ -155,38 +191,47 @@ class HandLandmarkService extends ChangeNotifier {
         AppLogger.error('Error preparing MediaPipe model: $e');
       }
 
+      // Set up a method channel to listen for native calls
+      _channel.setMethodCallHandler((MethodCall call) async {
+        // Cancel handling if disposed
+        if (_isDisposed) return;
+
+        switch (call.method) {
+          case 'onLandmarksDetected':
+            final result = call.arguments;
+            final jsonObject = jsonDecode(result);
+
+            _delegateType = jsonObject['delegate'] as String;
+            _inferenceTime = jsonObject['inferenceTime'] as int;
+            if (_currentLandmarks == null ||
+                _currentLandmarks['landmarks'] != jsonObject['landmarks']) {
+              _currentLandmarks = jsonObject;
+              
+              // Only notify if not disposed
+              if (!_isDisposed) {
+                notifyListeners();
+              }
+            }
+            break;
+          default:
+            AppLogger.error('Unknown method called: ${call.method}');
+        }
+      });
+
       if (_initializingCompleter != null &&
-          !_initializingCompleter!.isCompleted) {
+          !_initializingCompleter!.isCompleted &&
+          !_isDisposed) {
         _initializingCompleter!.complete();
       }
     } catch (e) {
       AppLogger.error('Error in background initialization', e);
 
       if (_initializingCompleter != null &&
-          !_initializingCompleter!.isCompleted) {
+          !_initializingCompleter!.isCompleted &&
+          !_isDisposed) {
         _initializingCompleter!.completeError(e);
       }
     }
-
-    // Set up a method channel to listen for native calls
-    _channel.setMethodCallHandler((MethodCall call) async {
-      switch (call.method) {
-        case 'onLandmarksDetected':
-          final result = call.arguments;
-          final jsonObject = jsonDecode(result);
-
-          _delegateType = jsonObject['delegate'] as String;
-          _inferenceTime = jsonObject['inferenceTime'] as int;
-          if (_currentLandmarks == null ||
-              _currentLandmarks['landmarks'] != jsonObject['landmarks']) {
-            _currentLandmarks = jsonObject;
-            notifyListeners();
-          }
-          break;
-        default:
-          AppLogger.error('Unknown method called: ${call.method}');
-      }
-    });
   }
 
   /// Process a camera image and detect hand landmarks
@@ -195,8 +240,13 @@ class HandLandmarkService extends ChangeNotifier {
     CameraImage image,
     CameraDescription cameraDescription,
   ) async {
-    // If we are already processing an image, or haven't initialized yet, skip this frame
-    if (_isProcessing || !_isInitialized) {
+    // Return immediately if the service was disposed or not initialized
+    if (_isDisposed || !_isInitialized) {
+      return;
+    }
+
+    // If we are already processing an image, skip this frame
+    if (_isProcessing) {
       return;
     }
 
@@ -210,6 +260,9 @@ class HandLandmarkService extends ChangeNotifier {
     _isProcessing = true;
 
     try {
+      // Return early if disposed
+      if (_isDisposed) return;
+
       final token = RootIsolateToken.instance;
       if (token == null) {
         AppLogger.error("Could not get RootIsolateToken");
@@ -232,15 +285,47 @@ class HandLandmarkService extends ChangeNotifier {
       AppLogger.error('Error processing image for hand landmarks', e);
       return;
     } finally {
-      _isProcessing = false;
+      // Set processing flag if not disposed
+      if (!_isDisposed) {
+        _isProcessing = false;
+      }
     }
   }
 
   @override
   void dispose() {
+    if (_isDisposed) {
+      return;  // Prevent multiple disposals
+    }
+
+    AppLogger.info('Disposing HandLandmarkService');
+    _isDisposed = true;
     _isInitialized = false;
     _currentLandmarks = null;
+    
+    // Clear all pending listeners to avoid memory leaks
+    for (final listener in _pendingListeners) {
+      super.removeListener(listener);
+    }
+    _pendingListeners.clear();
+    
+    // Complete any pending initialization
+    if (_initializingCompleter != null && !_initializingCompleter!.isCompleted) {
+      _initializingCompleter!.complete();
+    }
     _initializingCompleter = null;
+    
+    // Stop any in-progress frame processing
+    _isProcessing = false;
+    
+    // Clear method handler to prevent callbacks after disposal
+    // Using a try-catch since this sometimes causes issues if the app is closing
+    try {
+      _channel.setMethodCallHandler(null);
+    } catch (e) {
+      AppLogger.warn('Failed to clear method handler during disposal: $e');
+    }
+    
     super.dispose();
   }
 }

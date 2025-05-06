@@ -20,14 +20,60 @@ class DetectionScreen extends StatefulWidget {
   State<DetectionScreen> createState() => _DetectionScreenState();
 }
 
+class CameraPreviewContainer extends StatelessWidget {
+  final CameraController controller;
+  final double trueAspectRatio;
+  final double containerSize;
+
+  const CameraPreviewContainer({
+    super.key,
+    required this.controller,
+    required this.trueAspectRatio,
+    required this.containerSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final previewWidth =
+        trueAspectRatio > 1 ? containerSize * trueAspectRatio : containerSize;
+    final previewHeight =
+        trueAspectRatio < 1 ? containerSize / trueAspectRatio : containerSize;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: containerSize,
+        height: containerSize,
+        child: OverflowBox(
+          maxWidth: previewWidth,
+          maxHeight: previewHeight,
+          child: SizedBox(
+            width: previewWidth,
+            height: previewHeight,
+            child: controller.description.lensDirection == CameraLensDirection.front
+              ? Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0), // horizontal flip
+                  child: CameraPreview(controller),
+                )
+              : CameraPreview(controller),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _DetectionScreenState extends State<DetectionScreen>
     with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   final CameraService _cameraService = CameraService();
   final HandLandmarkService _handLandmarkService = handLandmarkService;
   final RecognitionService _recognitionService = RecognitionService();
 
+  double _trueAspectRatio = 1.0;
   bool _isCameraPermissionGranted = false;
   bool _isProcessing = false;
+  bool _isDisposed = false;
 
   RecognitionResult? _lastRecognition;
   StreamSubscription? _subscription;
@@ -59,21 +105,42 @@ class _DetectionScreenState extends State<DetectionScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Handle app lifecycle changes
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && !_isDisposed) {
       _initializeCamera();
-    } else if (state == AppLifecycleState.inactive) {
+    } else if (state == AppLifecycleState.inactive || 
+               state == AppLifecycleState.paused) {
       _stopCamera();
+    } else if (state == AppLifecycleState.detached) {
+      // Ensure complete cleanup when app is detached
+      _cleanupResources();
     }
   }
 
   Future<void> _requestCameraPermission() async {
     final status = await Permission.camera.request();
-    setState(() {
-      _isCameraPermissionGranted = status.isGranted;
-    });
+    if (mounted) {
+      setState(() {
+        _isCameraPermissionGranted = status.isGranted;
+      });
+    }
+  }
+
+  // Function to handle hand landmark updates
+  void _onHandLandmarkUpdate() {
+    if (_isDisposed || !mounted) return;
+    
+    final landmarks = _handLandmarkService.currentLandmarks;
+    if (landmarks != null) {
+      _recognitionHandsign(landmarks);
+    }
   }
 
   Future<void> _recognitionHandsign(landmarksResult) async {
+    if (_isDisposed) return;
+    
+    // Capture the context before async gap
+    final BuildContext currentContext = context;
+    
     if (landmarksResult == null ||
         (landmarksResult['landmarks'] as List<dynamic>).isEmpty) {
       // No landmarks detected, clear recognition
@@ -85,14 +152,16 @@ class _DetectionScreenState extends State<DetectionScreen>
         landmarksResult,
       );
 
+      if (_isDisposed) return;
+
       if (result != null && result.confidence > 0.59 && mounted) {
         _updateRecognitionState(result);
 
         // Update the UI asynchronously
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
+          if (currentContext.mounted && !_isDisposed) {
             Provider.of<TextInputService>(
-              context,
+              currentContext,
               listen: false,
             ).addCharacter(result);
           }
@@ -105,6 +174,8 @@ class _DetectionScreenState extends State<DetectionScreen>
   }
 
   Future<void> _initializeCamera() async {
+    if (_isDisposed) return;
+    
     // Check camera permission
     if (!_isCameraPermissionGranted) {
       await _requestCameraPermission();
@@ -113,33 +184,80 @@ class _DetectionScreenState extends State<DetectionScreen>
       }
     }
 
-    // Initialize services
-    await _cameraService.initialize();
-    await _handLandmarkService.initialize();
-    await _recognitionService.initialize();
+    // Capture the context before async gap
+    final BuildContext currentContext = context;
 
-    // Start camera stream
-    await _cameraService.startImageStream();
+    if (mounted && !_isDisposed) {
+      setState(() {
+        _isProcessing = true;
+      });
+    }
 
-    // Process frames
-    _subscription = _cameraService.imageStream.listen(_processImage);
-
-    // Listen for hand landmarks
-    _handLandmarkService.addListener(() {
-      if (_handLandmarkService.currentLandmarks != null) {
-        _recognitionHandsign(_handLandmarkService.currentLandmarks);
+    try {
+      // Fully dispose of previous camera resources if needed
+      if (_cameraService.isInitialized) {
+        _stopCamera();
+        await Future.delayed(const Duration(milliseconds: 300));
       }
-    });
+
+      if (_isDisposed) return;
+
+      // Initialize services
+      await _cameraService.initialize();
+      await _handLandmarkService.initialize();
+      await _recognitionService.initialize();
+
+      if (_isDisposed) return;
+
+      // Start camera stream
+      await _cameraService.startImageStream();
+
+      final aspectRatio = _cameraService.controller!.value.aspectRatio;
+      final orientation = _cameraService.controller!.description.sensorOrientation;
+
+      double fixedAspectRatio = aspectRatio * 0.934375; //?
+      if (orientation == 90 || orientation == 270) {
+        fixedAspectRatio = 1 / fixedAspectRatio;
+      }
+
+      _trueAspectRatio = fixedAspectRatio; // assign to a state field
+
+      // Process frames
+      _subscription = _cameraService.imageStream.listen(_processImage);
+
+      // Listen for hand landmarks
+      // Remove previous listener if exists (to avoid duplicates)
+      _handLandmarkService.removeListener(_onHandLandmarkUpdate);
+      _handLandmarkService.addListener(_onHandLandmarkUpdate);
+    } catch (e) {
+      AppLogger.error('Error in _initializeCamera: $e');
+      if (currentContext.mounted && !_isDisposed) {
+        ScaffoldMessenger.of(currentContext).showSnackBar(
+          SnackBar(
+            content: Text('Camera initialization error: ${e.toString()}'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+    }
   }
 
   Future<void> _processImage(CameraImage image) async {
-    // Don't process another frame if we're still processing or if the widget is unmounted
-    if (_isProcessing || !mounted) return;
+    // Don't process another frame if we're still processing, disposed, or if the widget is unmounted
+    if (_isProcessing || _isDisposed || !mounted) return;
 
     // Set processing flag to prevent multiple simultaneous processing
-    setState(() {
-      _isProcessing = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isProcessing = true;
+      });
+    }
 
     try {
       // Move the processing to a separate isolate via the service
@@ -152,7 +270,7 @@ class _DetectionScreenState extends State<DetectionScreen>
       AppLogger.error('Error processing image: $e');
     } finally {
       // Reset processing flag if widget is still mounted
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _isProcessing = false;
         });
@@ -162,22 +280,30 @@ class _DetectionScreenState extends State<DetectionScreen>
 
   void _stopCamera() {
     _subscription?.cancel();
+    _subscription = null;
     _cameraService.stopImageStream();
+  }
+  
+  void _cleanupResources() {
+    _stopCamera();
+    _cameraService.dispose();
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
-    _stopCamera();
-    _cameraService.dispose();
-    _handLandmarkService.dispose();
-    _recognitionService.dispose();
+    
+    _cleanupResources();
     _animationController.dispose();
+    
     super.dispose();
   }
 
   // Update the UI when recognition changes
   void _updateRecognitionState(RecognitionResult? result) {
+    if (_isDisposed || !mounted) return;
+    
     setState(() {
       _lastRecognition = result;
 
@@ -202,7 +328,9 @@ class _DetectionScreenState extends State<DetectionScreen>
 
     if (!_cameraService.isInitialized || _cameraService.controller == null) {
       return _buildLoading();
-    }
+    }    
+
+    double contextWidth = MediaQuery.of(context).size.width;
 
     return Column(
       children: [
@@ -211,48 +339,30 @@ class _DetectionScreenState extends State<DetectionScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Simple camera preview
-              CameraPreview(_cameraService.controller!),
+              // Simple camera preview with square crop
+              Center(
+                child: CameraPreviewContainer(controller: _cameraService.controller!, trueAspectRatio: _trueAspectRatio, containerSize: contextWidth * 0.9)
+              ),
 
-              // Processing area indicator with animated feedback
+              // Processing area indicator with animated feedback - made larger
               Center(
                 child: AnimatedBuilder(
                   animation: _animationController,
                   builder: (context, child) {
                     return Container(
-                      width: MediaQuery.of(context).size.width * 0.8,
-                      height: MediaQuery.of(context).size.width * 0.8,
+                      width: contextWidth * 0.9, // Larger rectangle
+                      height: contextWidth * 0.9, // Larger rectangle
                       decoration: BoxDecoration(
                         border: Border.all(
                           color: _borderColorAnimation.value ?? Colors.yellow,
-                          width: 2,
+                          width: 3, // Slightly thicker border
                         ),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Stack(
                         children: [
-                          // Conditional detection text
-                          if (_lastRecognition != null)
-                            Center(
-                              child: Text(
-                                "Hand Detected!",
-                                style: TextStyle(
-                                  color:
-                                      _borderColorAnimation.value ??
-                                      Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                  shadows: [
-                                    Shadow(
-                                      offset: Offset(1.0, 1.0),
-                                      blurRadius: 3.0,
-                                      color: Colors.black,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else
+                          // Only show guidance when no hand is detected
+                          if (_lastRecognition == null)
                             Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -262,9 +372,9 @@ class _DetectionScreenState extends State<DetectionScreen>
                                     color:
                                         _borderColorAnimation.value ??
                                         Colors.yellow,
-                                    size: 40,
+                                    size: 50, // Larger icon
                                   ),
-                                  SizedBox(height: 8),
+                                  SizedBox(height: 12),
                                   Text(
                                     "Place hand here",
                                     style: TextStyle(
@@ -272,6 +382,7 @@ class _DetectionScreenState extends State<DetectionScreen>
                                           _borderColorAnimation.value ??
                                           Colors.yellow,
                                       fontWeight: FontWeight.bold,
+                                      fontSize: 18, // Larger text
                                       shadows: [
                                         Shadow(
                                           offset: Offset(1.0, 1.0),
@@ -312,13 +423,7 @@ class _DetectionScreenState extends State<DetectionScreen>
                   ),
                 ),
 
-              // Processing indicator
-              if (_isProcessing)
-                const Center(
-                  child: SpinKitRipple(color: Colors.white, size: 100.0),
-                ),
-
-              // Model status indicator
+              // Model status indicator (without processing circle)
               Positioned(
                 top: 20,
                 left: 20,
@@ -346,10 +451,35 @@ class _DetectionScreenState extends State<DetectionScreen>
           flex: 2,
           child: Consumer<TextInputService>(
             builder: (context, service, child) {
+              final String currentWord = service.currentWord;
+
               return Container(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Current word display
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: .1),
+                        border: Border.all(color: Colors.blue.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        currentWord.isEmpty ? "..." : currentWord,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: currentWord.isEmpty ? Colors.grey : Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Full text display
                     Expanded(
                       child: Container(
                         width: double.infinity,
@@ -358,9 +488,11 @@ class _DetectionScreenState extends State<DetectionScreen>
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          service.text,
-                          style: const TextStyle(fontSize: 24),
+                        child: SingleChildScrollView(
+                          child: Text(
+                            service.text,
+                            style: const TextStyle(fontSize: 20),
+                          ),
                         ),
                       ),
                     ),
@@ -383,7 +515,47 @@ class _DetectionScreenState extends State<DetectionScreen>
                         IconButton(
                           icon: const Icon(Icons.cameraswitch),
                           onPressed: () async {
-                            await _cameraService.toggleCamera();
+                            if (_isDisposed) return;
+                            
+                            // Capture the context before async gap
+                            final BuildContext currentContext = context;
+                            
+                            // Disable processing while switching cameras
+                            setState(() {
+                              _isProcessing = true;
+                            });
+                            
+                            try {
+                              final success = await _cameraService.toggleCamera();
+                              
+                              if (!success && currentContext.mounted && !_isDisposed) {
+                                // Show error snackbar if camera switch failed
+                                ScaffoldMessenger.of(currentContext).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Failed to switch camera. Please try again.'),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              // Show error message
+                              if (currentContext.mounted && !_isDisposed) {
+                                ScaffoldMessenger.of(currentContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Camera error: ${e.toString()}'),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                              AppLogger.error('Error in camera switch button: $e');
+                            } finally {
+                              // Re-enable processing
+                              if (mounted && !_isDisposed) {
+                                setState(() {
+                                  _isProcessing = false;
+                                });
+                              }
+                            }
                           },
                         ),
                       ],
