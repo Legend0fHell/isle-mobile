@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import '../models/recognition_model.dart';
 import '../utils/logger.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Helper class for running inference in isolate
 class _InferenceParams {
@@ -65,10 +67,19 @@ class RecognitionService {
   Interpreter? _interpreter;
   bool _isInitialized = false;
   final _throttler = Throttler(duration: const Duration(milliseconds: 100));
+  bool _isMockStage2Enabled = false;
 
   static const String modelFilename = 'asl_landmark_model.tflite';
   // Initialize in background
   Future<void> initialize() async {
+    // Check if we're in emulator mode (where MediaPipe isn't supported)
+    _isMockStage2Enabled = dotenv.env['MOCK_STAGE2_OUTPUT'] == 'true' || kIsWeb;
+    if (_isMockStage2Enabled) {
+      AppLogger.info('Recognition Service (Stage2) initializing in mock output -- all outputs are random!');
+      _isInitialized = true;
+      return;
+    }
+    
     if (_isInitialized) return;
 
     try {
@@ -125,6 +136,11 @@ class RecognitionService {
     if (!_isInitialized) {
       unawaited(initialize());
       return null;
+    }
+    
+    // If in emulator mode, generate mock results
+    if (_isMockStage2Enabled) {
+      return _generateMockResult();
     }
 
     return _throttler.throttle(() async {
@@ -198,9 +214,25 @@ class RecognitionService {
     );
   }
 
+  // Generate mock recognition result for environments without MediaPipe
+  RecognitionResult? _generateMockResult() {
+    // Calculate an index from 0-24 based on row and col
+    // Random confidence between 0.6 and 0.95
+    final random = math.Random();
+    final index = random.nextInt(outputs.length);
+    final confidence = 0.3 + (random.nextDouble() * 0.65);
+    
+    return RecognitionResult(
+      character: outputs[index],
+      confidence: confidence,
+    );
+  }
+
   void dispose() {
-    _interpreter?.close();
-    _interpreter = null;
+    if (!_isMockStage2Enabled) {
+      _interpreter?.close();
+      _interpreter = null;
+    }
     _isInitialized = false;
   }
 }

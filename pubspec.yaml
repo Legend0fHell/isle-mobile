@@ -52,7 +52,6 @@ dependencies:
   # Path utilities for asset management
   path_provider: ^2.1.2
   path: ^1.8.3
-  mediapipe_core: ^0.0.1
   image: ^4.5.4
 
   # ui

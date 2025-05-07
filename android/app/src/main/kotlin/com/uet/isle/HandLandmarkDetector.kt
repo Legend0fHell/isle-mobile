@@ -105,16 +105,6 @@ class HandLandmarkDetector(
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
         bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size, options)
-        
-        // print the content of the resulting bitmap
-        // Log.d(TAG, "Bitmap content: ${bitmap?.width} x ${bitmap?.height}, size: ${bitmap?.byteCount}, format: ${bitmap?.config}")
-
-        // // print the bitmap to base64
-        // val stream = ByteArrayOutputStream()
-        // bitmap?.compress(Bitmap.CompressFormat.JPEG, 50, stream)
-        // val byteArray = stream.toByteArray()
-        // val base64String = Base64.encodeToString(byteArray, Base64.DEFAULT)
-        // Log.d(TAG, "Bitmap base64: $base64String")
 
         // Create MPImage from the processed bitmap
         val mpImage = BitmapImageBuilder(bitmap).build()

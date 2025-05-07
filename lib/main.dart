@@ -6,6 +6,7 @@ import 'utils/logger.dart';
 import 'services/hand_landmark_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/mongodb_service.dart';
+import 'services/config_service.dart';
 import 'providers/auth_provider.dart';
 import 'screens/about.dart';
 import 'screens/detection_screen.dart';
@@ -18,9 +19,13 @@ import 'screens/login.dart'; // Add this import for the login screen
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
   await dotenv.load();
-
+  
+  // Initialize configuration service (handles env variables)
+  final configService = ConfigService();
+  await configService.initialize();
+  AppLogger.info('Configuration initialized');
+  
   // Initialize MongoDB connection
   try {
     await MongoDBService.initialize();
@@ -43,6 +48,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => TextInputService()),
         ChangeNotifierProvider.value(value: handLandmarkService),
+        Provider.value(value: configService),
       ],
       child: const MyApp(),
     ),
