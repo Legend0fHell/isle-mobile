@@ -47,12 +47,20 @@ class AuthProvider with ChangeNotifier {
       } else {
         _errorMessage = result['message'];
         _isLoading = false;
+
+        print("login failed");
+        print(_errorMessage);
+
         notifyListeners();
         return false;
       }
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
+
+      print("login catch error");
+      print(_errorMessage);
+
       notifyListeners();
       return false;
     }

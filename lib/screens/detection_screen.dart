@@ -332,7 +332,11 @@ class _DetectionScreenState extends State<DetectionScreen>
 
     double contextWidth = MediaQuery.of(context).size.width;
 
-    return Column(
+    return Text(
+      "idle"
+    );
+
+    /*return Column(
       children: [
         Expanded(
           flex: 3,
@@ -567,7 +571,7 @@ class _DetectionScreenState extends State<DetectionScreen>
           ),
         ),
       ],
-    );
+    ); */
   }
 
   Widget _buildPermissionRequest() {

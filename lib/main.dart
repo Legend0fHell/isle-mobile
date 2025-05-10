@@ -8,13 +8,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/mongodb_service.dart';
 import 'services/config_service.dart';
 import 'providers/auth_provider.dart';
-import 'screens/about.dart';
+import 'screens/about_screen.dart';
 import 'screens/detection_screen.dart';
-import 'screens/learn.dart';
-import 'screens/notifications.dart';
+import 'screens/learn_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/progress.dart';
-import 'screens/login.dart'; // Add this import for the login screen
+import 'screens/progress_screen.dart';
+import 'screens/login_screen.dart'; // Add this import for the login screen
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

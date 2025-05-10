@@ -19,7 +19,7 @@ class MongoDBService {
       // Get MongoDB URI from environment variables
       final mongoUri =
           dotenv.env['MONGODB_URI'] ??
-          'mongodb://localhost:27017/sign_language_app';
+              'mongodb://localhost:27017/sign_language_app';
 
       _db = await Db.create(mongoUri);
       await _db.open();
