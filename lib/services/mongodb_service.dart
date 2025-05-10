@@ -47,4 +47,50 @@ class MongoDBService {
     }
     return _db.collection(collectionName);
   }
+
+  // Get user profile from MongoDB
+  static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final usersCollection = getCollection('users');
+      final objectId = ObjectId.parse(userId); // Convert string to ObjectId
+      final userData = await usersCollection.findOne({'_id': objectId});
+
+      return userData;
+    } catch (e) {
+      AppLogger.info('Error getting user profile: $e');
+      return null;
+    }
+  }
+
+// Update user profile in MongoDB
+  static Future<bool> updateUserProfile(String userId, Map<String, dynamic> updatedData) async {
+    try {
+      final usersCollection = getCollection('users');
+      final objectId = ObjectId.parse(userId); // Convert string to ObjectId
+
+      // Check if the updated email is already taken by another user
+      if (updatedData.containsKey('email')) {
+        final existingUser = await usersCollection.findOne({
+          'email': updatedData['email'],
+          '_id': {'\$ne': objectId}  // not the current user
+        });
+
+        if (existingUser != null) {
+          AppLogger.info('Email already in use by another user.');
+          throw Exception('Email is already in use by another user.');
+        }
+      }
+
+      // Perform the update
+      await usersCollection.updateOne(
+        {'_id': objectId},
+        {'\$set': updatedData},
+      );
+
+      return true;
+    } catch (e) {
+      AppLogger.info('Error updating user profile: $e');
+      rethrow;
+    }
+  }
 }

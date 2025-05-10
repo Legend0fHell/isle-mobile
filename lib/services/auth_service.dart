@@ -27,9 +27,11 @@ class AuthService {
     String name,
   ) async {
     try {
+      print("HERE START");
       await MongoDBService.initialize();
       final collection = MongoDBService.getCollection(_usersCollection);
 
+      print("create collection successful");
       // Check if user already exists
       final existingUser = await collection.findOne(where.eq('email', email));
       if (existingUser != null) {
@@ -38,9 +40,11 @@ class AuthService {
           'message': 'User with this email already exists',
         };
       }
+      print("check existing user finished");
 
       // Create new user
       final user = {
+        '_id': ObjectId(),  // ensures it's a String
         'email': email,
         'password': _hashPassword(password),
         'name': name,
@@ -48,15 +52,20 @@ class AuthService {
       };
 
       final result = await collection.insert(user);
+      print("inserting user finished");
 
-      if (result["isSuccess"]) {
+      for (var key in result.keys) {
+        print("result[${key}] = ${result[key]}");
+      }
+
+      if (result["ok"] == 0) {
         return {
           'success': true,
           'message': 'User registered successfully',
           'userId': result["_id"],
         };
       } else {
-        return {'success': false, 'message': 'Failed to register user'};
+        return {'success': false, 'message': 'Failed to register user: ${result["errmsg"]}'};
       }
     } catch (e) {
       return {'success': false, 'message': 'Registration error: $e'};

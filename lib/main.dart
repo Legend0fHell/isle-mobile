@@ -12,7 +12,7 @@ import 'screens/about_screen.dart';
 import 'screens/detection_screen.dart';
 import 'screens/learn_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'screens/profile_screen.dart';
+import 'screens/user_profile_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/login_screen.dart'; // Add this import for the login screen
 
@@ -90,9 +90,8 @@ class MyApp extends StatelessWidget {
           '/notifications': (context) => const NotificationsScreen(),
           '/about': (context) => const AboutScreen(),
           '/progress': (context) => const ProgressScreen(),
-          '/user': (context) => const ProfileScreen(),
-          '/login':
-              (context) => const LoginScreen(), // Add route for login screen
+          '/user': (context) => const UserProfileScreen(),
+          '/login': (context) => const LoginScreen(), // Add route for login screen
         },
       ),
     );

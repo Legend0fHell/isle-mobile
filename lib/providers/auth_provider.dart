@@ -2,6 +2,15 @@
 import 'package:flutter/foundation.dart';
 import '../services/auth_service.dart';
 
+// User model
+class User {
+  final String id;
+  final String email;
+  final String name;
+
+  User({required this.id, required this.email, required this.name});
+}
+
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
   bool _isLoading = false;
@@ -48,7 +57,6 @@ class AuthProvider with ChangeNotifier {
         _errorMessage = result['message'];
         _isLoading = false;
 
-        print("login failed");
         print(_errorMessage);
 
         notifyListeners();
@@ -58,7 +66,6 @@ class AuthProvider with ChangeNotifier {
       _errorMessage = e.toString();
       _isLoading = false;
 
-      print("login catch error");
       print(_errorMessage);
 
       notifyListeners();
