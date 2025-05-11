@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/lesson_model.dart';
 import '../widgets/lesson_card_widget.dart';
+import '../providers/auth_provider.dart';
 import 'lesson_detail_screen.dart';
 
 class LearnScreen extends StatefulWidget {
@@ -40,6 +42,13 @@ class _LearnScreenState extends State<LearnScreen> {
   }
 
   void _navigateToLessonDetail(Lesson lesson) {
+    final isLoggedIn = Provider.of<AuthProvider>(context, listen: false).isAuthenticated;
+
+    if (!isLoggedIn) {
+      Navigator.pushNamed(context, '/login');
+      return; // Stop further execution
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(

@@ -93,4 +93,23 @@ class MongoDBService {
       rethrow;
     }
   }
+
+  // Get lesson by ID from MongoDB
+  static Future<Map<String, dynamic>?> getLesson(String lessonId) async {
+    try {
+      final lessonsCollection = getCollection('lessons');
+      final objectId = ObjectId.parse(lessonId); // Convert string to ObjectId
+      final lessonData = await lessonsCollection.findOne({'_id': objectId});
+
+      if (lessonData == null) {
+        AppLogger.info('Lesson not found with ID: $lessonId');
+        return null;
+      }
+
+      return lessonData;
+    } catch (e) {
+      AppLogger.error('Error getting lesson: $e');
+      return null;
+    }
+  }
 }
