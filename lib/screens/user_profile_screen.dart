@@ -97,7 +97,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     } catch (e) {
       AppLogger.info('Error updating user profile: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update profile: $e')),
+        SnackBar(content: Text('Failed to update profile: $e')),
       );
     } finally {
       setState(() {

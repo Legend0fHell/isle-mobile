@@ -1,117 +1,53 @@
-// lib/screens/learn_screen.dart
 import 'package:flutter/material.dart';
+import '../models/lesson_model.dart';
+import '../widgets/lesson_card_widget.dart';
+import 'lesson_detail_screen.dart';
 
-class LearnScreen extends StatelessWidget {
-  const LearnScreen({super.key});
+class LearnScreen extends StatefulWidget {
+  const LearnScreen({Key? key}) : super(key: key);
+
+  @override
+  _LearnScreenState createState() => _LearnScreenState();
+}
+
+class _LearnScreenState extends State<LearnScreen> {
+  final List<Lesson> _lessons = [
+    Lesson.commonWords(),
+    Lesson.vowels(),
+    Lesson.consonants(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
+    return Expanded(
+      child: ListView.builder(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildLessonCard(
-              'Lesson 1',
-              'The common words: Hello, How are you?, What\'s your name?',
-              'Completed',
-              100,
-              Colors.green,
-              Icons.check_circle,
+        itemCount: _lessons.length,
+        itemBuilder: (context, index) {
+          final lesson = _lessons[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: LessonCardWidget(
+              lesson: lesson,
+              onTap: () {
+                _navigateToLessonDetail(lesson);
+              },
             ),
-            const SizedBox(height: 16),
-            _buildLessonCard(
-              'Lesson 2',
-              'The vowels: A, E, I, O U',
-              'In progress',
-              50,
-              Colors.amber,
-              Icons.arrow_forward,
-            ),
-            const SizedBox(height: 16),
-            _buildLessonCard(
-              'Lesson 3',
-              'The common consonants: B, C, D, F, G',
-              'Not started',
-              0,
-              Colors.white,
-              Icons.add,
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildLessonCard(
-    String title,
-    String description,
-    String status,
-    int percentage,
-    Color color,
-    IconData icon,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
+  void _navigateToLessonDetail(Lesson lesson) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LessonDetailScreen(lesson: lesson),
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color:
-                      color == Colors.white
-                          ? Colors.black
-                          : Colors.black.withValues(alpha: .2),
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  icon,
-                  color: color == Colors.white ? Colors.white : Colors.black,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 14,
-              color:
-                  color == Colors.white
-                      ? Colors.black
-                      : Colors.black.withValues(alpha: .8),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Status: $status ($percentage%)',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color:
-                  color == Colors.white
-                      ? Colors.black
-                      : Colors.black.withValues(alpha: .8),
-            ),
-          ),
-        ],
-      ),
-    );
+    ).then((_) {
+      // Refresh the list when returning from lesson detail
+      setState(() {});
+    });
   }
 }
