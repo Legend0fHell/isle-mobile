@@ -18,10 +18,18 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   int _currentStep = 0;
   double _lessonProgress = 0.0;
 
+  // Add a key to force widget rebuild when content changes
+  final Map<int, GlobalKey> _contentKeys = {};
+
   @override
   void initState() {
     super.initState();
     _lessonProgress = widget.lesson.progress;
+
+    // Initialize keys for all content items
+    for (int i = 0; i < widget.lesson.content.length; i++) {
+      _contentKeys[i] = GlobalKey();
+    }
   }
 
   void _updateProgress(double progress) {
@@ -60,6 +68,17 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             valueColor: AlwaysStoppedAnimation<Color>(_getLessonColor()),
             minHeight: 10,
           ),
+          // Step indicator
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'Step ${_currentStep + 1} of ${widget.lesson.content.length}: ${widget.lesson.content[_currentStep].title}',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
           // Content description
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -71,7 +90,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
               ),
             ),
           ),
-          // Lesson content tabs
+          // Lesson content
           Expanded(
             child: _buildLessonContent(),
           ),
@@ -88,6 +107,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   onPressed: () {
                     setState(() {
                       _currentStep--;
+                      // Update progress when going back
+                      _updateProgress(
+                          (_currentStep + 1) / widget.lesson.content.length);
                     });
                   },
                   child: const Text('Previous'),
@@ -140,17 +162,25 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     // Get current lesson content item
     final contentItem = widget.lesson.content[_currentStep];
 
+    // Use a key specific to this step to force rebuild
+    final key = _contentKeys[_currentStep] ?? GlobalKey();
+
     // Return appropriate widget based on content type
     switch (contentItem.type) {
       case LessonContentType.video:
-        return VideoPlayerWidget(videoUrl: contentItem.resourceUrl);
+        return VideoPlayerWidget(
+          key: key,
+          videoUrl: contentItem.resourceUrl,
+        );
       case LessonContentType.practice:
         return PracticeMirrorWidget(
+          key: key,
           referenceVideoUrl: contentItem.resourceUrl,
           instructions: contentItem.instructions,
         );
       case LessonContentType.interactive:
         return InteractiveExerciseWidget(
+          key: key,
           exercise: contentItem,
           onComplete: (score) {
             // Handle completion of interactive exercise
@@ -158,6 +188,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         );
       case LessonContentType.quiz:
         return QuizWidget(
+          key: key,
           questions: contentItem.questions,
           onComplete: (score) {
             // Handle completion of quiz

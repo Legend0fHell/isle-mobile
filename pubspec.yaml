@@ -62,6 +62,7 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   flutter_dotenv: ^5.1.0
   video_player: ^2.9.5
+  youtube_player_flutter: ^9.1.1
 
 dev_dependencies:
   flutter_test:
@@ -88,6 +89,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/models/
+    - assets/images/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

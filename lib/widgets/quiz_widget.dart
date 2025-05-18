@@ -44,124 +44,156 @@ class _QuizWidgetState extends State<QuizWidget> {
 
     final currentQuestion = widget.questions![_currentQuestionIndex];
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
+    return SafeArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Question progress
-          LinearProgressIndicator(
-            value: (_currentQuestionIndex + 1) / widget.questions!.length,
-            backgroundColor: Colors.grey[300],
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
-            minHeight: 8,
-          ),
+          // Fixed header area with progress indicator
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Text(
-              'Question ${_currentQuestionIndex + 1} of ${widget.questions!.length}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Question progress
+                LinearProgressIndicator(
+                  value: (_currentQuestionIndex + 1) / widget.questions!.length,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                  minHeight: 8,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                    'Question ${_currentQuestionIndex + 1} of ${widget.questions!.length}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // Question text
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: Text(
-              currentQuestion.text,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          // Scrollable content area
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Question text
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        currentQuestion.text,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
 
-          // Question image if available
-          if (currentQuestion.imageUrl != null)
-            Container(
-              height: 150,
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 16.0),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: Image.asset(
-                  currentQuestion.imageUrl!,
-                  fit: BoxFit.contain,
+                    // Question image if available
+                    if (currentQuestion.imageUrl != null)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 16.0),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8.0),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Image.asset(
+                            currentQuestion.imageUrl!,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+
+                    // Options - wrapped in a column that doesn't overflow
+                    ...List.generate(
+                      currentQuestion.options.length,
+                          (index) => _buildOptionItem(index, currentQuestion),
+                    ),
+
+                    const SizedBox(height: 24.0),
+                  ],
                 ),
               ),
             ),
-
-          // Options
-          ...List.generate(
-            currentQuestion.options.length,
-                (index) => _buildOptionItem(index, currentQuestion),
           ),
 
-          const SizedBox(height: 24.0),
-
-          // Navigation buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (_currentQuestionIndex > 0)
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _currentQuestionIndex--;
-                      _selectedOptionIndex = null;
-                      _answerSubmitted = false;
-                    });
-                  },
-                  child: const Text('Previous'),
-                )
-              else
-                const SizedBox.shrink(),
-
-              ElevatedButton(
-                onPressed: _selectedOptionIndex == null || _answerSubmitted
-                    ? null
-                    : _checkAnswer,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 12.0),
+          // Fixed footer area with navigation buttons
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
                 ),
-                child: const Text('Submit'),
-              ),
-
-              if (_answerSubmitted)
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      if (_currentQuestionIndex < widget.questions!.length - 1) {
-                        _currentQuestionIndex++;
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (_currentQuestionIndex > 0)
+                  OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _currentQuestionIndex--;
                         _selectedOptionIndex = null;
                         _answerSubmitted = false;
-                      } else {
-                        _quizCompleted = true;
-                        _calculateAndSubmitScore();
-                      }
-                    });
-                  },
+                      });
+                    },
+                    child: const Text('Previous'),
+                  )
+                else
+                  const SizedBox(width: 80), // Placeholder for spacing
+
+                ElevatedButton(
+                  onPressed: _selectedOptionIndex == null || _answerSubmitted
+                      ? null
+                      : _checkAnswer,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                    backgroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
                   ),
-                  child: Text(
-                    _currentQuestionIndex < widget.questions!.length - 1
-                        ? 'Next'
-                        : 'Finish Quiz',
-                  ),
-                )
-              else
-                const SizedBox.shrink(),
-            ],
+                  child: const Text('Submit'),
+                ),
+
+                if (_answerSubmitted)
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        if (_currentQuestionIndex < widget.questions!.length - 1) {
+                          _currentQuestionIndex++;
+                          _selectedOptionIndex = null;
+                          _answerSubmitted = false;
+                        } else {
+                          _quizCompleted = true;
+                          _calculateAndSubmitScore();
+                        }
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                    child: Text(
+                      _currentQuestionIndex < widget.questions!.length - 1
+                          ? 'Next'
+                          : 'Finish',
+                    ),
+                  )
+                else
+                  const SizedBox(width: 80), // Placeholder for spacing
+              ],
+            ),
           ),
         ],
       ),
@@ -204,10 +236,12 @@ class _QuizWidgetState extends State<QuizWidget> {
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: isImage
-            ? Image.asset(
-          question.options[index],
-          height: 80,
-          fit: BoxFit.contain,
+            ? ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 120),
+          child: Image.asset(
+            question.options[index],
+            fit: BoxFit.contain,
+          ),
         )
             : Text(
           question.options[index],
@@ -245,65 +279,70 @@ class _QuizWidgetState extends State<QuizWidget> {
     final totalQuestions = widget.questions!.length;
     final score = (correctAnswers / totalQuestions) * 100;
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.check_circle,
-            color: Colors.green,
-            size: 80.0,
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 80.0,
+              ),
+              const SizedBox(height: 24.0),
+              const Text(
+                'Quiz Completed!',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16.0),
+              Text(
+                'Your Score: ${score.toStringAsFixed(0)}%',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              Text(
+                '$correctAnswers out of $totalQuestions questions correct',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 32.0),
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _currentQuestionIndex = 0;
+                    _selectedOptionIndex = null;
+                    _quizCompleted = false;
+                    _answerSubmitted = false;
+                    _answers = List.filled(widget.questions!.length, false);
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+                ),
+                child: const Text('Retry Quiz'),
+              ),
+              const SizedBox(height: 16.0),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Back to Lessons'),
+              ),
+            ],
           ),
-          const SizedBox(height: 24.0),
-          const Text(
-            'Quiz Completed!',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16.0),
-          Text(
-            'Your Score: ${score.toStringAsFixed(0)}%',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-            ),
-          ),
-          const SizedBox(height: 8.0),
-          Text(
-            '$correctAnswers out of $totalQuestions questions correct',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 32.0),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _currentQuestionIndex = 0;
-                _selectedOptionIndex = null;
-                _quizCompleted = false;
-                _answerSubmitted = false;
-                _answers = List.filled(widget.questions!.length, false);
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
-            ),
-            child: const Text('Retry Quiz'),
-          ),
-          const SizedBox(height: 16.0),
-          OutlinedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Back to Lessons'),
-          ),
-        ],
+        ),
       ),
     );
   }

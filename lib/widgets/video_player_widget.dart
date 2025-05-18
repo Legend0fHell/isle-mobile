@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   final String? videoUrl;
@@ -20,85 +21,101 @@ class VideoPlayerWidget extends StatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController? _controller;
+  VideoPlayerController? _videoController;
+  YoutubePlayerController? _youtubeController;
   bool _isInitialized = false;
   bool _isPlaying = false;
   String? _errorMessage;
+  bool _isYouTube = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeVideoPlayer();
+    _initializePlayer();
   }
 
-  Future<void> _initializeVideoPlayer() async {
-    if (widget.videoUrl == null || widget.videoUrl!.isEmpty) {
-      setState(() {
-        _errorMessage = 'Video URL is missing or empty';
-      });
+  Future<void> _initializePlayer() async {
+    final url = widget.videoUrl;
+    print("url: ${widget.videoUrl}");
+    if (url == null || url.isEmpty) {
+      setState(() => _errorMessage = 'Video URL is missing or empty');
       return;
     }
 
+    final videoId = YoutubePlayer.convertUrlToId(url);
+    print("videoId: $videoId");
+    _isYouTube = videoId != null;
+
     try {
-      if (widget.videoUrl!.startsWith('http')) {
-        _controller = VideoPlayerController.network(widget.videoUrl!);
+      if (_isYouTube) {
+        _youtubeController = YoutubePlayerController(
+          initialVideoId: videoId!,
+          flags: YoutubePlayerFlags(
+            autoPlay: widget.autoPlay,
+            mute: false,
+            loop: widget.looping,
+            controlsVisibleAtStart: widget.showControls,
+          ),
+        );
+        setState(() => _isInitialized = true);
       } else {
-        _controller = VideoPlayerController.asset(widget.videoUrl!);
+        _videoController = url.startsWith('http')
+            ? VideoPlayerController.network(url)
+            : VideoPlayerController.asset(url);
+
+        await _videoController!.initialize();
+
+        if (widget.autoPlay) {
+          _videoController!.play();
+          _isPlaying = true;
+        }
+
+        _videoController!.setLooping(widget.looping);
+        setState(() => _isInitialized = true);
       }
-
-      await _controller!.initialize();
-
-      if (widget.autoPlay) {
-        _controller!.play();
-        _isPlaying = true;
-      }
-
-      _controller!.setLooping(widget.looping);
-
-      setState(() {
-        _isInitialized = true;
-      });
     } catch (e) {
       setState(() {
         _errorMessage = 'Error loading video: ${e.toString()}';
-        _controller = null;
+        _videoController = null;
       });
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _videoController?.dispose();
+    _youtubeController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Show error message if initialization failed
-    if (_errorMessage != null) {
-      return _buildErrorWidget();
-    }
+    if (_errorMessage != null) return _buildErrorWidget();
 
-    // Show loading indicator while initializing
-    if (!_isInitialized || _controller == null) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+    if (!_isInitialized) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     return Column(
       children: [
         AspectRatio(
-          aspectRatio: _controller!.value.aspectRatio,
-          child: Stack(
+          aspectRatio: _isYouTube
+              ? 16 / 9
+              : _videoController!.value.aspectRatio,
+          child: _isYouTube
+              ? YoutubePlayer(
+            controller: _youtubeController!,
+            showVideoProgressIndicator: true,
+          )
+              : Stack(
             alignment: Alignment.bottomCenter,
             children: [
-              VideoPlayer(_controller!),
+              VideoPlayer(_videoController!),
               if (widget.showControls) _buildPlayPauseOverlay(),
             ],
           ),
         ),
-        if (widget.showControls) _buildControls(),
+        if (!(_isYouTube) && widget.showControls) _buildControls(),
         _buildInstructions(),
       ],
     );
@@ -110,18 +127,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 60,
-          ),
+          const Icon(Icons.error_outline, color: Colors.red, size: 60),
           const SizedBox(height: 16),
           Text(
             _errorMessage ?? 'Unknown error occurred',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.red,
-            ),
+            style: const TextStyle(fontSize: 16, color: Colors.red),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -129,7 +139,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             onPressed: () {
               setState(() {
                 _errorMessage = null;
-                _initializeVideoPlayer();
+                _initializePlayer();
               });
             },
             child: const Text('Retry'),
@@ -166,7 +176,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           ),
           Expanded(
             child: VideoProgressIndicator(
-              _controller!,
+              _videoController!,
               allowScrubbing: true,
               padding: const EdgeInsets.symmetric(vertical: 8.0),
             ),
@@ -174,10 +184,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           IconButton(
             icon: const Icon(Icons.replay),
             onPressed: () {
-              _controller!.seekTo(Duration.zero);
-              if (!_isPlaying) {
-                _togglePlayPause();
-              }
+              _videoController!.seekTo(Duration.zero);
+              if (!_isPlaying) _togglePlayPause();
             },
           ),
           IconButton(
@@ -187,7 +195,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             ),
             onPressed: () {
               setState(() {
-                _controller!.setLooping(!widget.looping);
+                _videoController!.setLooping(!widget.looping);
               });
             },
           ),
@@ -202,29 +210,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Tips:',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8.0),
-          const Text(
-            '• Watch the video multiple times to understand the hand movements',
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 4.0),
-          const Text(
-            '• Focus on both hand shape and movement direction',
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 4.0),
-          const Text(
-            '• Try to mimic the sign while watching',
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 16.0),
+          const Text('Tips:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text('• Watch the video multiple times to understand the hand movements', style: TextStyle(fontSize: 16)),
+          const Text('• Focus on both hand shape and movement direction', style: TextStyle(fontSize: 16)),
+          const Text('• Try to mimic the sign while watching', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () {
               // Navigate to practice mode
@@ -233,10 +224,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
               backgroundColor: Colors.green,
               minimumSize: const Size(double.infinity, 45),
             ),
-            child: const Text(
-              'Practice This Sign',
-              style: TextStyle(fontSize: 16),
-            ),
+            child: const Text('Practice This Sign', style: TextStyle(fontSize: 16)),
           ),
         ],
       ),
@@ -244,13 +232,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   void _togglePlayPause() {
-    if (_controller == null) return;
+    if (_videoController == null) return;
 
     setState(() {
       if (_isPlaying) {
-        _controller!.pause();
+        _videoController!.pause();
       } else {
-        _controller!.play();
+        _videoController!.play();
       }
       _isPlaying = !_isPlaying;
     });

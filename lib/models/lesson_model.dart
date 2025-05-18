@@ -103,6 +103,9 @@ class LessonContent {
 
   // Convert from MongoDB map to LessonContent object
   factory LessonContent.fromMap(Map<String, dynamic> map) {
+    for (var key in map.keys) {
+      print("map[$key] = ${map[key]}");
+    }
     final typeStr = map['type'] as String;
     LessonContentType contentType;
 
@@ -126,7 +129,7 @@ class LessonContent {
     return LessonContent(
       title: map['title'] as String,
       type: contentType,
-      resourceUrl: map['resourceUrl'] as String?,
+      resourceUrl: map['videoUrl'] as String?,
       instructions: map['instructions'] as String,
       dialogueSteps: (map['dialogueSteps'] as List<dynamic>?)?.map((step) => step as String).toList(),
       wordExamples: (map['wordExamples'] as List<dynamic>?)?.map((word) => word as String).toList(),
