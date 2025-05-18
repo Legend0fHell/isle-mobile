@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/text_input_service.dart';
 import 'utils/logger.dart';
 import 'services/hand_landmark_service.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'services/mongodb_service.dart';
 import 'services/config_service.dart';
 import 'providers/auth_provider.dart';

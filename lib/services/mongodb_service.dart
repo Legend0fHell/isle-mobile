@@ -1,8 +1,12 @@
 // lib/services/mongodb_service.dart
+import 'package:flutter/material.dart';
 import 'package:isle/utils/logger.dart';
 import 'package:mongo_dart/mongo_dart.dart';
 import 'dart:async';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart';
 
 class MongoDBService {
   static late Db _db;
@@ -110,6 +114,55 @@ class MongoDBService {
     } catch (e) {
       AppLogger.error('Error getting lesson: $e');
       return null;
+    }
+  }
+
+  // Get all lessons from MongoDB
+  static Future<List<Map<String, dynamic>>> getAllLesson() async {
+    try {
+      final lessonsCollection = getCollection('lessons');
+      final lessonsCursor = await lessonsCollection.find().toList();
+
+      AppLogger.info('Retrieved ${lessonsCursor.length} lessons.');
+      return lessonsCursor.cast<Map<String, dynamic>>();
+    } catch (e) {
+      AppLogger.error('Error getting all lessons: $e');
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getProgressCurrentUser(BuildContext context) async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      final userId = authProvider.user?["id"]; // Adjust this based on your Auth model
+
+      print("GET PROGRESS");
+      print(authProvider.isAuthenticated);
+      print(userId);
+
+      final userData = await getUserProfile(userId.toHexString());
+
+      print("GET PROGRESS: GET USER ID");
+
+      if (userData == null) {
+        AppLogger.info('User not found with ID: $userId');
+        return [];
+      }
+
+      print("GET PROGRESS: CHECK USER ID");
+
+      final progress = userData['learn_progress'];
+      print("progress: $progress");
+      print("progress.runtimeType: ${progress.runtimeType}");
+      if (progress != null && progress is List) {
+        return List<Map<String, dynamic>>.from(progress);
+      }
+
+      return [];
+    } catch (e) {
+      AppLogger.error('Error getting progress for current user: $e');
+      return [];
     }
   }
 }
