@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:provider/provider.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 // Import the hand sign detector related files
-import '../services/text_input_service.dart';
 import '../models/recognition_model.dart';
 import 'hand_sign_detector_widget.dart';
 
