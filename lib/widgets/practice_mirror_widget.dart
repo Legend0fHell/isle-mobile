@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'video_player_widget.dart';
+import 'package:provider/provider.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
+// Import the hand sign detector related files
+import '../services/text_input_service.dart';
+import '../models/recognition_model.dart';
+import 'hand_sign_detector_widget.dart';
 
 class PracticeMirrorWidget extends StatefulWidget {
   final String? referenceVideoUrl;
@@ -17,74 +23,74 @@ class PracticeMirrorWidget extends StatefulWidget {
 }
 
 class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
-  CameraController? _cameraController;
-  bool _isCameraInitialized = false;
-  bool _isRecording = false;
-  bool _isFrontCamera = true;
-  String? _recordedVideoPath;
   bool _showReferenceVideo = true;
-  String? _cameraErrorMessage;
+  String? _lastDetectedSign;
+  HandSignDetectorController? _handSignDetectorController;
+  bool _isAssessmentAvailable = false;
+  YoutubePlayerController? _youtubeController;
 
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    _handSignDetectorController = HandSignDetectorController(
+      toggleCamera: () async {
+        // Default implementation
+        return false;
+      },
+    );
+
+    // Initialize YouTube controller if URL is available
+    _initializeYouTubeController();
   }
 
-  Future<void> _initializeCamera() async {
-    try {
-      final cameras = await availableCameras();
-
-      if (cameras.isEmpty) {
-        setState(() {
-          _cameraErrorMessage = 'No cameras available on this device';
-        });
-        return;
-      }
-
-      final frontCamera = cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      _cameraController = CameraController(
-        frontCamera,
-        ResolutionPreset.medium,
-        enableAudio: true,
-      );
-
-      await _cameraController!.initialize();
-
-      if (mounted) {
-        setState(() {
-          _isCameraInitialized = true;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _cameraErrorMessage = 'Failed to initialize camera: ${e.toString()}';
-      });
+  @override
+  void didUpdateWidget(PracticeMirrorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-initialize YouTube controller if URL changes
+    if (oldWidget.referenceVideoUrl != widget.referenceVideoUrl) {
+      _initializeYouTubeController();
     }
+  }
+
+  void _initializeYouTubeController() {
+    if (widget.referenceVideoUrl != null && widget.referenceVideoUrl!.isNotEmpty) {
+      // Extract YouTube video ID from URL
+      final videoId = _extractYouTubeId(widget.referenceVideoUrl!);
+      if (videoId != null) {
+        _youtubeController = YoutubePlayerController(
+          initialVideoId: videoId,
+          flags: const YoutubePlayerFlags(
+            autoPlay: true,
+            mute: false,
+            loop: true,
+          ),
+        );
+      }
+    }
+  }
+
+  String? _extractYouTubeId(String url) {
+    // Handle various YouTube URL formats
+    RegExp regExp = RegExp(
+      r'^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*',
+      caseSensitive: false,
+      multiLine: false,
+    );
+    final match = regExp.firstMatch(url);
+    if (match != null && match.groupCount >= 2) {
+      return match.group(2);
+    }
+    return null;
   }
 
   @override
   void dispose() {
-    _cameraController?.dispose();
+    _youtubeController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_cameraErrorMessage != null) {
-      return _buildErrorWidget();
-    }
-
-    if (!_isCameraInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
@@ -100,7 +106,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
               ),
               _buildVideoComparisonSection(constraints),
               _buildControlsSection(),
-              if (_recordedVideoPath != null) _buildAssessmentSection(),
+              if (_isAssessmentAvailable) _buildAssessmentSection(),
               // Add extra padding at the bottom to avoid being cut off by navigation
               const SizedBox(height: 16),
             ],
@@ -111,27 +117,38 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
   }
 
   Widget _buildVideoComparisonSection(BoxConstraints constraints) {
-    // Calculate appropriate height based on screen width to maintain aspect ratio
-    // Limiting height to avoid being too tall on wide screens
-    final double maxVideoHeight = constraints.maxWidth > 600
-        ? 250
-        : constraints.maxWidth * 0.4;
+    // Calculate appropriate size based on screen width
+    // Use the minimum of width/2 (for side-by-side layout) or a fixed maximum
+    final bool isWideScreen = constraints.maxWidth > 600;
+
+    // For wide screens, each video gets roughly half the width minus padding
+    // For narrow screens, each video gets full width
+    final double videoWidth = isWideScreen
+        ? (constraints.maxWidth - 48) / 2  // Account for padding and middle spacing
+        : constraints.maxWidth - 32;       // Account for horizontal padding
+
+    // Limit max height to maintain reasonable proportions
+    final double maxVideoHeight = isWideScreen ? 250 : videoWidth * 0.75;
+
+    // Make sure hand detector has a defined square size that fits within constraints
+    final double handDetectorSize = maxVideoHeight;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: constraints.maxWidth > 600
+      child: isWideScreen
       // Horizontal layout for larger screens
           ? Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          SizedBox(
+            width: videoWidth / 2,
             child: _buildVideoContainer(_buildReferenceVideoWidget(), maxVideoHeight),
           ),
           const SizedBox(width: 16.0),
-          Expanded(
+          SizedBox(
+            width: videoWidth / 2,
             child: _buildVideoContainer(
-                _isCameraInitialized
-                    ? CameraPreview(_cameraController!)
-                    : const Center(child: CircularProgressIndicator()),
+                _buildHandSignDetectorWidget(handDetectorSize),
                 maxVideoHeight
             ),
           ),
@@ -143,9 +160,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
           _buildVideoContainer(_buildReferenceVideoWidget(), maxVideoHeight),
           const SizedBox(height: 16.0),
           _buildVideoContainer(
-              _isCameraInitialized
-                  ? CameraPreview(_cameraController!)
-                  : const Center(child: CircularProgressIndicator()),
+              _buildHandSignDetectorWidget(handDetectorSize),
               maxVideoHeight
           ),
         ],
@@ -160,9 +175,46 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
         border: Border.all(color: Colors.grey),
         borderRadius: BorderRadius.circular(8.0),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8.0),
-        child: child,
+      clipBehavior: Clip.hardEdge, // Enforce clipping to prevent overflow
+      child: child,
+    );
+  }
+
+  Widget _buildHandSignDetectorWidget(double containerHeight) {
+    return SizedBox(
+      height: containerHeight,
+      width: containerHeight, // Make it square
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: 1.0, // Force a perfect square
+          child: HandSignDetectorWidget(
+            // Pass explicit dimensions instead of just previewWidth
+            previewWidth: containerHeight * 0.9, // Slightly smaller to ensure no overflow
+            showDetectionFeedback: true,
+            showRecognitionInfo: true,
+            showModelStatus: false,
+            showGuidance: true,
+            confidenceThreshold: 0.65,
+            controller: _handSignDetectorController,
+            onHandSignDetected: _onHandSignDetected,
+            bottomWidget: null, // No bottom widget as we manage the layout
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _onHandSignDetected(RecognitionResult result) {
+    setState(() {
+      _lastDetectedSign = result.character;
+      _isAssessmentAvailable = true;
+    });
+
+    // Optional: Show a temporary indication
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Detected sign: ${result.character}'),
+        duration: const Duration(seconds: 1),
       ),
     );
   }
@@ -177,18 +229,31 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
         children: [
           IconButton(
             icon: const Icon(Icons.flip_camera_ios),
-            onPressed: _switchCamera,
+            onPressed: () async {
+              final result = await _handSignDetectorController?.toggleCamera() ?? false;
+              if (!result) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to switch camera')),
+                  );
+                }
+              }
+            },
             tooltip: 'Switch Camera',
           ),
           ElevatedButton(
-            onPressed: _isRecording ? _stopRecording : _startRecording,
+            onPressed: () {
+              setState(() {
+                _isAssessmentAvailable = true;
+              });
+            },
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isRecording ? Colors.red : Colors.blue,
+              backgroundColor: Colors.blue,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: Text(
-              _isRecording ? 'Stop Recording' : 'Record Practice',
-              style: const TextStyle(fontSize: 16),
+            child: const Text(
+              'Evaluate Practice',
+              style: TextStyle(fontSize: 16),
             ),
           ),
           IconButton(
@@ -198,7 +263,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
             onPressed: _canToggleVideoSource() ? _toggleVideoSource : null,
             color: _canToggleVideoSource() ? null : Colors.grey,
             tooltip: _showReferenceVideo
-                ? 'Show Your Recording'
+                ? 'Hide Reference'
                 : 'Show Reference',
           ),
         ],
@@ -212,12 +277,25 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Self-Assessment:',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Self-Assessment:',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (_lastDetectedSign != null)
+                Text(
+                  'Last detected sign: $_lastDetectedSign',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8.0),
           LayoutBuilder(
@@ -253,43 +331,6 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
     );
   }
 
-  Widget _buildErrorWidget() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              _cameraErrorMessage ?? 'Unknown error occurred',
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.red,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _cameraErrorMessage = null;
-                  _initializeCamera();
-                });
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildReferenceVideoWidget() {
     if (_showReferenceVideo) {
       if (widget.referenceVideoUrl == null || widget.referenceVideoUrl!.isEmpty) {
@@ -309,20 +350,40 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
         );
       }
 
-      return VideoPlayerWidget(
-        videoUrl: widget.referenceVideoUrl,
-        autoPlay: true,
-        looping: true,
-      );
-    } else if (_recordedVideoPath != null) {
-      return VideoPlayerWidget(
-        videoUrl: _recordedVideoPath,
-        autoPlay: true,
-        looping: true,
-      );
+      // Return YouTube player if controller is initialized
+      if (_youtubeController != null) {
+        return YoutubePlayer(
+          controller: _youtubeController!,
+          showVideoProgressIndicator: true,
+          progressIndicatorColor: Colors.blueAccent,
+          progressColors: const ProgressBarColors(
+            playedColor: Colors.blueAccent,
+            handleColor: Colors.blueAccent,
+          ),
+        );
+      } else {
+        // Show error if YouTube ID couldn't be extracted
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 40, color: Colors.red),
+              SizedBox(height: 8),
+              Text(
+                'Invalid YouTube URL',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.red),
+              ),
+            ],
+          ),
+        );
+      }
     } else {
       return const Center(
-        child: Text('No recording yet'),
+        child: Text(
+          'Reference video hidden',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
   }
@@ -347,109 +408,12 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
   }
 
   bool _canToggleVideoSource() {
-    // Can only toggle if there is both a reference video and a recorded video
-    return _recordedVideoPath != null &&
-        widget.referenceVideoUrl != null &&
+    // Can toggle if there is a reference video
+    return widget.referenceVideoUrl != null &&
         widget.referenceVideoUrl!.isNotEmpty;
   }
 
-  Future<void> _switchCamera() async {
-    if (_cameraController == null) return;
-
-    try {
-      final cameras = await availableCameras();
-
-      if (cameras.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No cameras available')),
-        );
-        return;
-      }
-
-      final newCamera = _isFrontCamera
-          ? cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.back,
-        orElse: () => cameras.first,
-      )
-          : cameras.firstWhere(
-            (camera) => camera.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      if (mounted) {
-        await _cameraController!.dispose();
-
-        _cameraController = CameraController(
-          newCamera,
-          ResolutionPreset.medium,
-          enableAudio: true,
-        );
-
-        await _cameraController!.initialize();
-
-        setState(() {
-          _isFrontCamera = !_isFrontCamera;
-        });
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to switch camera: ${e.toString()}')),
-      );
-    }
-  }
-
-  Future<void> _startRecording() async {
-    if (_cameraController == null || _cameraController!.value.isRecordingVideo) {
-      return;
-    }
-
-    try {
-      await _cameraController!.startVideoRecording();
-      setState(() {
-        _isRecording = true;
-      });
-    } catch (e) {
-      debugPrint('Error starting video recording: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to start recording: ${e.toString()}')),
-      );
-    }
-  }
-
-  Future<void> _stopRecording() async {
-    if (_cameraController == null || !_cameraController!.value.isRecordingVideo) {
-      return;
-    }
-
-    try {
-      final XFile videoFile = await _cameraController!.stopVideoRecording();
-      setState(() {
-        _isRecording = false;
-        _recordedVideoPath = videoFile.path;
-        _showReferenceVideo = false; // Switch to show recorded video
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Video recorded successfully'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error stopping video recording: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save recording: ${e.toString()}')),
-      );
-    }
-  }
-
   void _toggleVideoSource() {
-    if (_recordedVideoPath == null ||
-        widget.referenceVideoUrl == null ||
-        widget.referenceVideoUrl!.isEmpty) {
-      return; // Can't toggle if either video is missing
-    }
-
     setState(() {
       _showReferenceVideo = !_showReferenceVideo;
     });
