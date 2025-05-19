@@ -36,14 +36,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Future<void> _initializePlayer() async {
     final url = widget.videoUrl;
-    print("url: ${widget.videoUrl}");
     if (url == null || url.isEmpty) {
       setState(() => _errorMessage = 'Video URL is missing or empty');
       return;
     }
 
     final videoId = YoutubePlayer.convertUrlToId(url);
-    print("videoId: $videoId");
     _isYouTube = videoId != null;
 
     try {
@@ -96,28 +94,41 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      children: [
-        AspectRatio(
-          aspectRatio: _isYouTube
-              ? 16 / 9
-              : _videoController!.value.aspectRatio,
-          child: _isYouTube
-              ? YoutubePlayer(
-            controller: _youtubeController!,
-            showVideoProgressIndicator: true,
-          )
-              : Stack(
-            alignment: Alignment.bottomCenter,
-            children: [
-              VideoPlayer(_videoController!),
-              if (widget.showControls) _buildPlayPauseOverlay(),
-            ],
-          ),
-        ),
-        if (!(_isYouTube) && widget.showControls) _buildControls(),
-        _buildInstructions(),
-      ],
+    return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                // Video player container with fixed aspect ratio
+                Container(
+                  width: constraints.maxWidth,
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight * 0.5, // Limit height to 50% of available space
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: _isYouTube
+                        ? 16 / 9
+                        : _videoController!.value.aspectRatio,
+                    child: _isYouTube
+                        ? YoutubePlayer(
+                      controller: _youtubeController!,
+                      showVideoProgressIndicator: true,
+                    )
+                        : Stack(
+                      alignment: Alignment.bottomCenter,
+                      children: [
+                        VideoPlayer(_videoController!),
+                        if (widget.showControls) _buildPlayPauseOverlay(),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!(_isYouTube) && widget.showControls) _buildControls(),
+                _buildInstructions(),
+              ],
+            ),
+          );
+        }
     );
   }
 
@@ -212,19 +223,34 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         children: [
           const Text('Tips:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('• Watch the video multiple times to understand the hand movements', style: TextStyle(fontSize: 16)),
-          const Text('• Focus on both hand shape and movement direction', style: TextStyle(fontSize: 16)),
-          const Text('• Try to mimic the sign while watching', style: TextStyle(fontSize: 16)),
+          const Text(
+            '• Watch the video multiple times to understand the hand movements',
+            style: TextStyle(fontSize: 16),
+            softWrap: true,
+          ),
+          const Text(
+            '• Focus on both hand shape and movement direction',
+            style: TextStyle(fontSize: 16),
+            softWrap: true,
+          ),
+          const Text(
+            '• Try to mimic the sign while watching',
+            style: TextStyle(fontSize: 16),
+            softWrap: true,
+          ),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Navigate to practice mode
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              minimumSize: const Size(double.infinity, 45),
+          FractionallySizedBox(
+            widthFactor: 1.0, // Takes full width
+            child: ElevatedButton(
+              onPressed: () {
+                // Navigate to practice mode
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Practice This Sign', style: TextStyle(fontSize: 16)),
             ),
-            child: const Text('Practice This Sign', style: TextStyle(fontSize: 16)),
           ),
         ],
       ),

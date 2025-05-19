@@ -58,7 +58,31 @@ class TextInputService with ChangeNotifier {
     // Notify listeners immediately after input
     notifyListeners();
   }
-  
+
+  void backspace() {
+    try {
+      if (_currentWord.isNotEmpty) {
+        _currentWord = _currentWord.substring(0, _currentWord.length - 1);
+      } else if (_text.isNotEmpty) {
+        // Remove trailing space if exists
+        _text = _text.trimRight();
+        int lastSpace = _text.lastIndexOf(' ');
+        if (lastSpace != -1) {
+          _currentWord = _text.substring(lastSpace + 1);
+          _text = _text.substring(0, lastSpace);
+        } else {
+          _currentWord = _text;
+          _text = '';
+        }
+      }
+
+      _updateSuggestionsAsync();
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Error handling backspace', e);
+    }
+  }
+
   void _processCharacterInput(RecognitionResult result) {
     try {
       if (result.isDelete) {

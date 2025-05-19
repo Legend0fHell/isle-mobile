@@ -85,107 +85,171 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
       );
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            widget.instructions,
-            style: const TextStyle(fontSize: 16),
-          ),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: _buildReferenceVideoWidget(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16.0),
-            Expanded(
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8.0),
-                  child: CameraPreview(_cameraController!),
-                ),
-              ),
-            ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              IconButton(
-                icon: const Icon(Icons.flip_camera_ios),
-                onPressed: _switchCamera,
-                tooltip: 'Switch Camera',
-              ),
-              ElevatedButton(
-                onPressed: _isRecording ? _stopRecording : _startRecording,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isRecording ? Colors.red : Colors.blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
                 child: Text(
-                  _isRecording ? 'Stop Recording' : 'Record Practice',
+                  widget.instructions,
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
-              IconButton(
-                icon: Icon(_showReferenceVideo
-                    ? Icons.video_library
-                    : Icons.videocam),
-                onPressed: _canToggleVideoSource() ? _toggleVideoSource : null,
-                color: _canToggleVideoSource() ? null : Colors.grey,
-                tooltip: _showReferenceVideo
-                    ? 'Show Your Recording'
-                    : 'Show Reference',
-              ),
+              _buildVideoComparisonSection(constraints),
+              _buildControlsSection(),
+              if (_recordedVideoPath != null) _buildAssessmentSection(),
+              // Add extra padding at the bottom to avoid being cut off by navigation
+              const SizedBox(height: 16),
             ],
           ),
-        ),
-        if (_recordedVideoPath != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Self-Assessment:',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                Row(
-                  children: [
-                    _buildAssessmentButton('Needs Work', Colors.red[100]!),
-                    const SizedBox(width: 8.0),
-                    _buildAssessmentButton('Getting There', Colors.orange[100]!),
-                    const SizedBox(width: 8.0),
-                    _buildAssessmentButton('Got It!', Colors.green[100]!),
-                  ],
-                ),
-              ],
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoComparisonSection(BoxConstraints constraints) {
+    // Calculate appropriate height based on screen width to maintain aspect ratio
+    // Limiting height to avoid being too tall on wide screens
+    final double maxVideoHeight = constraints.maxWidth > 600
+        ? 250
+        : constraints.maxWidth * 0.4;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: constraints.maxWidth > 600
+      // Horizontal layout for larger screens
+          ? Row(
+        children: [
+          Expanded(
+            child: _buildVideoContainer(_buildReferenceVideoWidget(), maxVideoHeight),
+          ),
+          const SizedBox(width: 16.0),
+          Expanded(
+            child: _buildVideoContainer(
+                _isCameraInitialized
+                    ? CameraPreview(_cameraController!)
+                    : const Center(child: CircularProgressIndicator()),
+                maxVideoHeight
             ),
           ),
-      ],
+        ],
+      )
+      // Vertical layout for smaller screens
+          : Column(
+        children: [
+          _buildVideoContainer(_buildReferenceVideoWidget(), maxVideoHeight),
+          const SizedBox(height: 16.0),
+          _buildVideoContainer(
+              _isCameraInitialized
+                  ? CameraPreview(_cameraController!)
+                  : const Center(child: CircularProgressIndicator()),
+              maxVideoHeight
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoContainer(Widget child, double height) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8.0),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildControlsSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Wrap(
+        alignment: WrapAlignment.spaceEvenly,
+        spacing: 16.0,
+        runSpacing: 16.0,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.flip_camera_ios),
+            onPressed: _switchCamera,
+            tooltip: 'Switch Camera',
+          ),
+          ElevatedButton(
+            onPressed: _isRecording ? _stopRecording : _startRecording,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _isRecording ? Colors.red : Colors.blue,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: Text(
+              _isRecording ? 'Stop Recording' : 'Record Practice',
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          IconButton(
+            icon: Icon(_showReferenceVideo
+                ? Icons.video_library
+                : Icons.videocam),
+            onPressed: _canToggleVideoSource() ? _toggleVideoSource : null,
+            color: _canToggleVideoSource() ? null : Colors.grey,
+            tooltip: _showReferenceVideo
+                ? 'Show Your Recording'
+                : 'Show Reference',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssessmentSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Self-Assessment:',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8.0),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Decide between row and column based on available width
+              if (constraints.maxWidth >= 450) {
+                return Row(
+                  children: [
+                    Expanded(child: _buildAssessmentButton('Needs Work', Colors.red[100]!)),
+                    const SizedBox(width: 8.0),
+                    Expanded(child: _buildAssessmentButton('Getting There', Colors.orange[100]!)),
+                    const SizedBox(width: 8.0),
+                    Expanded(child: _buildAssessmentButton('Got It!', Colors.green[100]!)),
+                  ],
+                );
+              } else {
+                // Stack vertically for narrow screens
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildAssessmentButton('Needs Work', Colors.red[100]!),
+                    const SizedBox(height: 8.0),
+                    _buildAssessmentButton('Getting There', Colors.orange[100]!),
+                    const SizedBox(height: 8.0),
+                    _buildAssessmentButton('Got It!', Colors.green[100]!),
+                  ],
+                );
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -264,23 +328,21 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
   }
 
   Widget _buildAssessmentButton(String text, Color color) {
-    return Expanded(
-      child: ElevatedButton(
-        onPressed: () {
-          // Handle assessment
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('You marked this attempt as: $text'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.black87,
-        ),
-        child: Text(text),
+    return ElevatedButton(
+      onPressed: () {
+        // Handle assessment
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('You marked this attempt as: $text'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.black87,
       ),
+      child: Text(text),
     );
   }
 
