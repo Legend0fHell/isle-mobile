@@ -13,9 +13,11 @@ class DetectionScreen extends StatefulWidget {
 
 class _DetectionScreenState extends State<DetectionScreen> {
   // Controller for the HandSignDetectorWidget
-  final HandSignDetectorController _detectorController = HandSignDetectorController(
-    toggleCamera: () => Future.value(false), // Placeholder until widget initializes
-  );
+  final HandSignDetectorController _detectorController =
+      HandSignDetectorController(
+        toggleCamera:
+            () => Future.value(false), // Placeholder until widget initializes
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
           Expanded(
             flex: 3,
             child: HandSignDetectorWidget(
-              confidenceThreshold: 0.59,
+              confidenceThreshold: 0.65,
               showDetectionFeedback: true,
               showRecognitionInfo: true,
               showModelStatus: true,
@@ -61,7 +63,10 @@ class _DetectionScreenState extends State<DetectionScreen> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: currentWord.isEmpty ? Colors.grey : Colors.black,
+                            color:
+                                currentWord.isEmpty
+                                    ? Colors.grey
+                                    : Colors.black,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -105,13 +110,16 @@ class _DetectionScreenState extends State<DetectionScreen> {
                           IconButton(
                             icon: const Icon(Icons.cameraswitch),
                             onPressed: () async {
-                              final success = await _detectorController.toggleCamera();
+                              final success =
+                                  await _detectorController.toggleCamera();
 
                               if (!success && mounted) {
                                 // Show error snackbar if camera switch failed
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Failed to switch camera. Please try again.'),
+                                    content: Text(
+                                      'Failed to switch camera. Please try again.',
+                                    ),
                                     duration: Duration(seconds: 2),
                                   ),
                                 );

@@ -57,7 +57,7 @@ class HandSignDetectorWidget extends StatefulWidget {
     this.showRecognitionInfo = true,
     this.showModelStatus = true,
     this.showGuidance = true,
-    this.confidenceThreshold = 0.59,
+    this.confidenceThreshold = 0.6,
     this.controller,
   });
 
@@ -81,9 +81,9 @@ class CameraPreviewContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final previewWidth =
-    trueAspectRatio > 1 ? containerSize * trueAspectRatio : containerSize;
+        trueAspectRatio > 1 ? containerSize * trueAspectRatio : containerSize;
     final previewHeight =
-    trueAspectRatio < 1 ? containerSize / trueAspectRatio : containerSize;
+        trueAspectRatio < 1 ? containerSize / trueAspectRatio : containerSize;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -96,13 +96,17 @@ class CameraPreviewContainer extends StatelessWidget {
           child: SizedBox(
             width: previewWidth,
             height: previewHeight,
-            child: controller.description.lensDirection == CameraLensDirection.front
-                ? Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()..scale(-1.0, 1.0, 1.0), // horizontal flip
-              child: CameraPreview(controller),
-            )
-                : CameraPreview(controller),
+            child:
+                controller.description.lensDirection ==
+                        CameraLensDirection.front
+                    ? Transform(
+                      alignment: Alignment.center,
+                      transform:
+                          Matrix4.identity()
+                            ..scale(-1.0, 1.0, 1.0), // horizontal flip
+                      child: CameraPreview(controller),
+                    )
+                    : CameraPreview(controller),
           ),
         ),
       ),
@@ -215,7 +219,9 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
 
       if (_isDisposed) return;
 
-      if (result != null && result.confidence > widget.confidenceThreshold && mounted) {
+      if (result != null &&
+          result.confidence > widget.confidenceThreshold &&
+          mounted) {
         _updateRecognitionState(result);
 
         // Notify parent widget of detection
@@ -285,7 +291,8 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
       await _cameraService.startImageStream();
 
       final aspectRatio = _cameraService.controller!.value.aspectRatio;
-      final orientation = _cameraService.controller!.description.sensorOrientation;
+      final orientation =
+          _cameraService.controller!.description.sensorOrientation;
 
       double fixedAspectRatio = aspectRatio * 0.934375; //?
       if (orientation == 90 || orientation == 270) {
@@ -434,11 +441,11 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
             children: [
               // Simple camera preview with square crop
               Center(
-                  child: CameraPreviewContainer(
-                    controller: _cameraService.controller!,
-                    trueAspectRatio: _trueAspectRatio,
-                    containerSize: previewSize,
-                  )
+                child: CameraPreviewContainer(
+                  controller: _cameraService.controller!,
+                  trueAspectRatio: _trueAspectRatio,
+                  containerSize: previewSize,
+                ),
               ),
 
               // Processing area indicator with animated feedback
@@ -467,14 +474,18 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
                                   children: [
                                     Icon(
                                       Icons.front_hand_outlined,
-                                      color: _borderColorAnimation.value ?? Colors.yellow,
+                                      color:
+                                          _borderColorAnimation.value ??
+                                          Colors.yellow,
                                       size: 50,
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
                                       "Place hand here",
                                       style: TextStyle(
-                                        color: _borderColorAnimation.value ?? Colors.yellow,
+                                        color:
+                                            _borderColorAnimation.value ??
+                                            Colors.yellow,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 18,
                                         shadows: const [

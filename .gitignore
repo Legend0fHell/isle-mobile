@@ -96,3 +96,6 @@ app.*.map.json
 /macos
 /web
 /windows
+
+extract_meta.py
+.python-version
