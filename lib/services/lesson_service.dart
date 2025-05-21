@@ -5,6 +5,8 @@ import 'package:isle/services/mongodb_service.dart';
 import 'package:isle/utils/logger.dart';
 import 'package:bson/bson.dart';
 
+import '../models/lesson_model.dart';
+
 class LessonService {
   // Get a lesson by its ID
   static Future<Lesson?> getLessonById(String lessonId) async {
@@ -50,8 +52,8 @@ class LessonService {
         final contentId = content['_id'] as ObjectId;
 
         content['status'] = finishedContentIds.contains(contentId)
-            ? 'finished'
-            : 'incomplete';
+            ? LessonContentStatus.finished
+            : LessonContentStatus.incomplete;
 
         contentsByLessonId.putIfAbsent(lessonId, () => []).add(content);
       }

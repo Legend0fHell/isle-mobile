@@ -78,7 +78,7 @@ class Lesson {
   double getProgress() {
     int total_finished = 0;
     for (var eachLessonContent in content) {
-      if (eachLessonContent.status == 'finished') {
+      if (eachLessonContent.status == LessonContentStatus.finished) {
         total_finished += 1;
       }
     };
@@ -153,7 +153,7 @@ class LessonContent {
       questions: (map['questions'] as List<dynamic>?)
           ?.map((questionMap) => Question.fromMap(questionMap as Map<String, dynamic>))
           .toList(),
-      status: map['status']
+      status: map['status'] as LessonContentStatus
     );
   }
 
@@ -189,6 +189,12 @@ class LessonContent {
     };
   }
 }
+
+enum LessonContentStatus {
+  finished,
+  incomplete
+}
+
 
 class Question {
   final String text;
