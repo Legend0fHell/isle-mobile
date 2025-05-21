@@ -19,6 +19,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Text("idle");
     return Scaffold(
       body: Column(
         children: [

@@ -4,6 +4,7 @@ import '../widgets/video_player_widget.dart';
 import '../widgets/practice_mirror_widget.dart';
 import '../widgets/interactive_exercise_widget.dart';
 import '../widgets/quiz_widget.dart';
+import '../services/mongodb_service.dart';
 
 class LessonDetailScreen extends StatefulWidget {
   final Lesson lesson;
@@ -24,7 +25,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _lessonProgress = widget.lesson.progress;
+    _lessonProgress = widget.lesson.getProgress();
 
     // Initialize keys for all content items
     for (int i = 0; i < widget.lesson.content.length; i++) {
@@ -37,6 +38,22 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       _lessonProgress = progress;
       // In a real app, you would save this progress to storage/backend
     });
+  }
+
+  Future<void> _markCurrentStepComplete(BuildContext context) async {
+    final contentItem = widget.lesson.content[_currentStep];
+
+    print("ADD LESSON TO USER PROGRESS: START");
+
+    try {
+      print("ADD LESSON TO USER PROGRESS");
+      print("${contentItem.objId.toHexString()}");
+      await MongoDBService.addLessonToUserProgress(context, contentItem.objId.toHexString()); // ⚡ Call your backend update function
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update progress: $e')),
+      );
+    }
   }
 
   @override
@@ -104,7 +121,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             children: [
               if (_currentStep > 0)
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () {// ✅ Add content to user's progress
                     setState(() {
                       _currentStep--;
                       // Update progress when going back
@@ -116,7 +133,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                 ),
               if (_currentStep > 0) const Spacer(),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  print("ADD LESSON TO USER PROGRESS: AWAIT");
+                  await _markCurrentStepComplete(context);
                   setState(() {
                     if (_currentStep < widget.lesson.content.length - 1) {
                       _currentStep++;
@@ -146,7 +165,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Color _getLessonColor() {
-    switch (widget.lesson.id) {
+    switch (widget.lesson.objId) {
       case 1:
         return Colors.green;
       case 2:

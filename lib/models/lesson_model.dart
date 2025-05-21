@@ -1,20 +1,20 @@
 import 'package:mongo_dart/mongo_dart.dart';
 
 class Lesson {
-  final ObjectId? id; // Changed to ObjectId for MongoDB compatibility
+  final ObjectId? objId; // Changed to ObjectId for MongoDB compatibility
+  final int lessonId;
   final String title;
   final String description;
-  final double progress;
   final List<LessonContent> content;
   final bool open;
   final String? category; // Added for category filtering
   final String? level;    // Added for difficulty level filtering
 
   Lesson({
-    this.id,
+    required this.objId,
+    required this.lessonId,
     required this.title,
     required this.description,
-    this.progress = 0.0,
     required this.content,
     required this.open,
     this.category,
@@ -24,10 +24,10 @@ class Lesson {
   // Convert from MongoDB map to Lesson object
   factory Lesson.fromMap(Map<String, dynamic> map) {
     return Lesson(
-      id: map['_id'] as ObjectId,
+      objId: map['_id'] as ObjectId,
+      lessonId: map['id'] as int,
       title: map['title'] as String,
       description: map['description'] as String,
-      progress: map['progress'].toDouble() as double? ?? 0.0,
       category: map['category'] as String?,
       level: map['level'] as String?,
       open: map['open'] as bool,
@@ -41,10 +41,10 @@ class Lesson {
   // Convert to MongoDB map
   Map<String, dynamic> toMap() {
     return {
-      if (id != null) '_id': id,
+      '_id': objId,
+      'id': lessonId,
       'title': title,
       'description': description,
-      'progress': progress.toDouble(),
       if (category != null) 'category': category,
       if (level != null) 'level': level,
       'content': content.map((content) => content.toMap()).toList(),
@@ -53,7 +53,8 @@ class Lesson {
 
   // Create a copy of this lesson with optional new values
   Lesson copyWith({
-    ObjectId? id,
+    ObjectId? objId,
+    int? lessonId,
     String? title,
     String? description,
     double? progress,
@@ -63,15 +64,26 @@ class Lesson {
     String? level,
   }) {
     return Lesson(
-      id: id ?? this.id,
+      objId: objId ?? this.objId,
+      lessonId: lessonId ?? this.lessonId,
       title: title ?? this.title,
       description: description ?? this.description,
-      progress: progress ?? this.progress.toDouble(),
       content: content ?? this.content,
       open: open ?? this.open,
       category: category ?? this.category,
       level: level ?? this.level,
     );
+  }
+
+  double getProgress() {
+    int total_finished = 0;
+    for (var eachLessonContent in content) {
+      if (eachLessonContent.status == 'finished') {
+        total_finished += 1;
+      }
+    };
+
+    return total_finished.toDouble() / content.length.toDouble();
   }
 }
 
@@ -83,6 +95,7 @@ enum LessonContentType {
 }
 
 class LessonContent {
+  final ObjectId objId;
   final String title;
   final LessonContentType type;
   final String? resourceUrl;
@@ -90,8 +103,10 @@ class LessonContent {
   final List<String>? dialogueSteps;
   final List<String>? wordExamples;
   final List<Question>? questions;
+  var status;
 
   LessonContent({
+    required this.objId,
     required this.title,
     required this.type,
     this.resourceUrl,
@@ -99,6 +114,7 @@ class LessonContent {
     this.dialogueSteps,
     this.wordExamples,
     this.questions,
+    required this.status
   });
 
   // Convert from MongoDB map to LessonContent object
@@ -127,6 +143,7 @@ class LessonContent {
     }
 
     return LessonContent(
+      objId: map['_id'] as ObjectId,
       title: map['title'] as String,
       type: contentType,
       resourceUrl: map['videoUrl'] as String?,
@@ -136,6 +153,7 @@ class LessonContent {
       questions: (map['questions'] as List<dynamic>?)
           ?.map((questionMap) => Question.fromMap(questionMap as Map<String, dynamic>))
           .toList(),
+      status: map['status']
     );
   }
 
@@ -159,6 +177,7 @@ class LessonContent {
     }
 
     return {
+      '_id': objId,
       'title': title,
       'type': typeStr,
       if (resourceUrl != null) 'resourceUrl': resourceUrl,
@@ -166,6 +185,7 @@ class LessonContent {
       if (dialogueSteps != null) 'dialogueSteps': dialogueSteps,
       if (wordExamples != null) 'wordExamples': wordExamples,
       if (questions != null) 'questions': questions!.map((question) => question.toMap()).toList(),
+      'status': status
     };
   }
 }

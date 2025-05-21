@@ -107,7 +107,7 @@ class AuthService {
         'success': true,
         'message': 'Login successful',
         'user': {
-          'id': user['_id'],
+          '_id': user['_id'],
           'email': user['email'],
           'name': user['name'],
         },
@@ -141,7 +141,7 @@ class AuthService {
       );
       if (user == null) return null;
 
-      return {'id': user['_id'], 'email': user['email'], 'name': user['name']};
+      return {'_id': user['_id'], 'email': user['email'], 'name': user['name']};
     } catch (e) {
       AppLogger.error('Error getting current user: $e');
       return null;

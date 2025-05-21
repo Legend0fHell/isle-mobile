@@ -40,7 +40,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?["id"];
+      final userId = authProvider.user?["_id"];
 
       if (userId != null) {
         // Fetch user data from MongoDB
@@ -73,7 +73,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?["id"];
+      final userId = authProvider.user?["_id"];
 
       if (userId != null) {
         final updatedData = {

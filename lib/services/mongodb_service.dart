@@ -135,7 +135,7 @@ class MongoDBService {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      final userId = authProvider.user?["id"]; // Adjust this based on your Auth model
+      final userId = authProvider.user?["_id"]; // Adjust this based on your Auth model
 
       print("GET PROGRESS");
       print(authProvider.isAuthenticated);
@@ -163,6 +163,51 @@ class MongoDBService {
     } catch (e) {
       AppLogger.error('Error getting progress for current user: $e');
       return [];
+    }
+  }
+
+  // Add lesson to user's lesson_progress
+  static Future<void> addLessonToUserProgress(BuildContext context, String lessonId) async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userId = authProvider.user?["_id"]; // Adjust this based on your Auth model
+
+      final usersCollection = getCollection('users');
+      final lessonObjectId = ObjectId.parse(lessonId);
+      final finishedAt = DateTime.now().toUtc().add(const Duration(hours: 7));
+
+      // Step 1: Check if lesson already exists in learn_progress
+      final existingProgress = await usersCollection.findOne({
+        '_id': userId,
+        'learn_progress.lesson_id': lessonObjectId,
+      });
+
+      if (existingProgress != null) {
+        AppLogger.info('Lesson $lessonId already completed by user $userId. Skipping add.');
+        return;
+      }
+
+      // Step 2: Add to learn_progress if not found
+      final updateResult = await usersCollection.updateOne(
+        {'_id': userId},
+        {
+          r'$addToSet': {
+            'learn_progress': {
+              'lesson_id': lessonObjectId,
+              'finished_at': finishedAt,
+            },
+          },
+        },
+      );
+
+      if (updateResult.isSuccess) {
+        AppLogger.info('Successfully added lesson to learn_progress for user $userId');
+      } else {
+        AppLogger.error('No document matched or no change for user $userId');
+      }
+    } catch (e) {
+      AppLogger.error('Error adding lesson to user progress: $e');
+      rethrow;
     }
   }
 }

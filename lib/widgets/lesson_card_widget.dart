@@ -59,7 +59,7 @@ class LessonCardWidget extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '(${(lesson.progress * 100).toInt()}%)',
+                  '(${(lesson.getProgress() * 100).toInt()}%)',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -75,7 +75,7 @@ class LessonCardWidget extends StatelessWidget {
   }
 
   Color _getLessonColor() {
-    switch (lesson.id) {
+    switch (lesson.objId) {
       case 1:
         return Colors.green;
       case 2:
@@ -88,13 +88,13 @@ class LessonCardWidget extends StatelessWidget {
   }
 
   Widget _getActionIcon() {
-    if (lesson.progress >= 1.0) {
+    if (lesson.getProgress() >= 1.0) {
       return const Icon(
         Icons.check_circle,
         color: Colors.white,
         size: 28,
       );
-    } else if (lesson.progress > 0.0) {
+    } else if (lesson.getProgress() > 0.0) {
       return const Icon(
         Icons.arrow_forward,
         color: Colors.white,
@@ -110,9 +110,9 @@ class LessonCardWidget extends StatelessWidget {
   }
 
   String _getStatusText() {
-    if (lesson.progress >= 1.0) {
+    if (lesson.getProgress() >= 1.0) {
       return 'Completed';
-    } else if (lesson.progress > 0.0) {
+    } else if (lesson.getProgress() > 0.0) {
       return 'In progress';
     } else {
       return 'Not started';
