@@ -76,12 +76,6 @@ class LessonCardWidget extends StatelessWidget {
 
   Color _getLessonColor() {
     switch (lesson.objId) {
-      case 1:
-        return Colors.green;
-      case 2:
-        return Colors.orange;
-      case 3:
-        return Colors.blue;
       default:
         return Colors.purple;
     }

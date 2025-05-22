@@ -166,12 +166,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   Color _getLessonColor() {
     switch (widget.lesson.objId) {
-      case 1:
-        return Colors.green;
-      case 2:
-        return Colors.orange;
-      case 3:
-        return Colors.blue;
       default:
         return Colors.purple;
     }

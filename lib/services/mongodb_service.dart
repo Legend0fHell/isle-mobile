@@ -53,11 +53,20 @@ class MongoDBService {
   }
 
   // Get user profile from MongoDB
-  static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+  static Future<Map<String, dynamic>?> getUserProfile(BuildContext context) async {
     try {
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      final userId = authProvider.user?["_id"]; // Adjust this based on your Auth model
+
+      print("GET PROGRESS");
+      print(authProvider.isAuthenticated);
+      print(userId);
+
       final usersCollection = getCollection('users');
-      final objectId = ObjectId.parse(userId); // Convert string to ObjectId
-      final userData = await usersCollection.findOne({'_id': objectId});
+
+      final userData = await usersCollection.findOne({'_id': userId});
 
       return userData;
     } catch (e) {
@@ -133,20 +142,13 @@ class MongoDBService {
 
   static Future<List<Map<String, dynamic>>> getProgressCurrentUser(BuildContext context) async {
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      final userId = authProvider.user?["_id"]; // Adjust this based on your Auth model
-
-      print("GET PROGRESS");
-      print(authProvider.isAuthenticated);
-      print(userId);
-
-      final userData = await getUserProfile(userId.toHexString());
+      final userData = await getUserProfile(context);
 
       print("GET PROGRESS: GET USER ID");
 
       if (userData == null) {
-        AppLogger.info('User not found with ID: $userId');
+        AppLogger.info('User not found');
         return [];
       }
 

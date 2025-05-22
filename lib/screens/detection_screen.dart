@@ -14,14 +14,13 @@ class DetectionScreen extends StatefulWidget {
 class _DetectionScreenState extends State<DetectionScreen> {
   // Controller for the HandSignDetectorWidget
   final HandSignDetectorController _detectorController =
-      HandSignDetectorController(
-        toggleCamera:
-            () => Future.value(false), // Placeholder until widget initializes
-      );
+  HandSignDetectorController(
+    toggleCamera:
+        () => Future.value(false), // Placeholder until widget initializes
+  );
 
   @override
   Widget build(BuildContext context) {
-    // return Text("idle");
     return Scaffold(
       body: Column(
         children: [
@@ -48,6 +47,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Current word display
@@ -64,17 +64,19 @@ class _DetectionScreenState extends State<DetectionScreen> {
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color:
-                                currentWord.isEmpty
-                                    ? Colors.grey
-                                    : Colors.black,
+                            currentWord.isEmpty
+                                ? Colors.grey
+                                : Colors.black,
                           ),
                           textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
 
                       const SizedBox(height: 12),
 
-                      // Full text display
+                      // Full text display with proper overflow handling
                       Expanded(
                         child: Container(
                           width: double.infinity,
@@ -83,50 +85,71 @@ class _DetectionScreenState extends State<DetectionScreen> {
                             border: Border.all(color: Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: SingleChildScrollView(
-                            child: Text(
-                              service.text,
-                              style: const TextStyle(fontSize: 20),
+                          child: Scrollbar(
+                            child: SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: 0,
+                                ),
+                                child: Text(
+                                  service.text.isEmpty ? "Start signing to see text appear here..." : service.text,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    color: service.text.isEmpty ? Colors.grey.shade600 : Colors.black,
+                                  ),
+                                  softWrap: true,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.backspace),
-                            onPressed: () => service.backspace(),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.space_bar),
-                            onPressed: () => service.selectSuggestion(" "),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () => service.clearText(),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.cameraswitch),
-                            onPressed: () async {
-                              final success =
-                                  await _detectorController.toggleCamera();
 
-                              if (!success && mounted) {
-                                // Show error snackbar if camera switch failed
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Failed to switch camera. Please try again.',
+                      const SizedBox(height: 16),
+
+                      // Button row with overflow prevention
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.backspace),
+                              onPressed: () => service.backspace(),
+                              tooltip: 'Backspace',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.space_bar),
+                              onPressed: () => service.selectSuggestion(" "),
+                              tooltip: 'Add Space',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () => service.clearText(),
+                              tooltip: 'Clear All',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.cameraswitch),
+                              onPressed: () async {
+                                final success =
+                                await _detectorController.toggleCamera();
+
+                                if (!success && mounted) {
+                                  // Show error snackbar if camera switch failed
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Failed to switch camera. Please try again.',
+                                      ),
+                                      duration: Duration(seconds: 2),
                                     ),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        ],
+                                  );
+                                }
+                              },
+                              tooltip: 'Switch Camera',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

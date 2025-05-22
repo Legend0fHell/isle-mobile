@@ -5,8 +5,6 @@ import 'package:isle/services/mongodb_service.dart';
 import 'package:isle/utils/logger.dart';
 import 'package:bson/bson.dart';
 
-import '../models/lesson_model.dart';
-
 class LessonService {
   // Get a lesson by its ID
   static Future<Lesson?> getLessonById(String lessonId) async {
@@ -33,8 +31,8 @@ class LessonService {
     try {
       await MongoDBService.initialize();
 
-      final lessonsCollection = MongoDBService.getCollection('lessons');
-      final lessonContentsCollection = MongoDBService.getCollection('lessoncontents');
+      final lessonsCollection = await MongoDBService.getCollection('lessons');
+      final lessonContentsCollection = await MongoDBService.getCollection('lessoncontents');
       final progressCollection = await MongoDBService.getProgressCurrentUser(context); // e.g., [{ lesson_id, finished_at }]
 
       final lessonsCursor = await lessonsCollection.find().toList();

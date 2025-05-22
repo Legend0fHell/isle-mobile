@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../models/lesson_model.dart';
-import 'video_player_widget.dart';
 
 class InteractiveExerciseWidget extends StatefulWidget {
   final LessonContent exercise;
