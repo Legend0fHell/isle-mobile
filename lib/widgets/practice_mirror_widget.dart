@@ -8,11 +8,15 @@ import 'hand_sign_detector_widget.dart';
 class PracticeMirrorWidget extends StatefulWidget {
   final String? referenceVideoUrl;
   final String instructions;
+  final String? targetSign;
+  final Function(String)? onSignDetected;
 
   const PracticeMirrorWidget({
     Key? key,
     this.referenceVideoUrl,
     required this.instructions,
+    this.targetSign,
+    this.onSignDetected,
   }) : super(key: key);
 
   @override
@@ -25,6 +29,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
   HandSignDetectorController? _handSignDetectorController;
   bool _isAssessmentAvailable = false;
   YoutubePlayerController? _youtubeController;
+  bool _isPracticeSuccessful = false;
 
   @override
   void initState() {
@@ -46,6 +51,15 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
     // Re-initialize YouTube controller if URL changes
     if (oldWidget.referenceVideoUrl != widget.referenceVideoUrl) {
       _initializeYouTubeController();
+    }
+
+    // Reset practice status if target sign changes
+    if (oldWidget.targetSign != widget.targetSign) {
+      setState(() {
+        _isPracticeSuccessful = false;
+        _lastDetectedSign = null;
+        _isAssessmentAvailable = false;
+      });
     }
   }
 
@@ -96,14 +110,43 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  widget.instructions,
-                  style: const TextStyle(fontSize: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.instructions,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    if (widget.targetSign != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.track_changes, color: Colors.blue[600]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Target Sign: ${widget.targetSign}',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               _buildVideoComparisonSection(constraints),
               _buildControlsSection(),
-              if (_isAssessmentAvailable) _buildAssessmentSection(),
               // Add extra padding at the bottom to avoid being cut off by navigation
               const SizedBox(height: 16),
             ],
@@ -205,15 +248,35 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
     setState(() {
       _lastDetectedSign = result.character;
       _isAssessmentAvailable = true;
+
+      // Check if detected sign matches target sign
+      if (widget.targetSign != null &&
+          result.character.toUpperCase() == widget.targetSign!.toUpperCase()) {
+        _isPracticeSuccessful = true;
+      }
     });
 
-    // Optional: Show a temporary indication
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Detected sign: ${result.character}'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+    // Notify parent widget about the detected sign
+    if (widget.onSignDetected != null) {
+      widget.onSignDetected!(result.character);
+    }
+
+    // Show different messages based on success
+    if (_isPracticeSuccessful) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('Perfect! You signed "${result.character}" correctly!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Widget _buildControlsSection() {
@@ -238,21 +301,6 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
             },
             tooltip: 'Switch Camera',
           ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _isAssessmentAvailable = true;
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-            child: const Text(
-              'Evaluate Practice',
-              style: TextStyle(fontSize: 16),
-            ),
-          ),
           IconButton(
             icon: Icon(_showReferenceVideo
                 ? Icons.video_library
@@ -262,66 +310,6 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
             tooltip: _showReferenceVideo
                 ? 'Hide Reference'
                 : 'Show Reference',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAssessmentSection() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Self-Assessment:',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (_lastDetectedSign != null)
-                Text(
-                  'Last detected sign: $_lastDetectedSign',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8.0),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // Decide between row and column based on available width
-              if (constraints.maxWidth >= 450) {
-                return Row(
-                  children: [
-                    Expanded(child: _buildAssessmentButton('Needs Work', Colors.red[100]!)),
-                    const SizedBox(width: 8.0),
-                    Expanded(child: _buildAssessmentButton('Getting There', Colors.orange[100]!)),
-                    const SizedBox(width: 8.0),
-                    Expanded(child: _buildAssessmentButton('Got It!', Colors.green[100]!)),
-                  ],
-                );
-              } else {
-                // Stack vertically for narrow screens
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildAssessmentButton('Needs Work', Colors.red[100]!),
-                    const SizedBox(height: 8.0),
-                    _buildAssessmentButton('Getting There', Colors.orange[100]!),
-                    const SizedBox(height: 8.0),
-                    _buildAssessmentButton('Got It!', Colors.green[100]!),
-                  ],
-                );
-              }
-            },
           ),
         ],
       ),
@@ -383,25 +371,6 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
         ),
       );
     }
-  }
-
-  Widget _buildAssessmentButton(String text, Color color) {
-    return ElevatedButton(
-      onPressed: () {
-        // Handle assessment
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('You marked this attempt as: $text'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.black87,
-      ),
-      child: Text(text),
-    );
   }
 
   bool _canToggleVideoSource() {

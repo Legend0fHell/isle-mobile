@@ -139,59 +139,90 @@ class _QuizWidgetState extends State<QuizWidget> {
                 ),
               ],
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (_currentQuestionIndex > 0)
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _currentQuestionIndex--;
-                        _selectedOptionIndex = null;
-                        _answerSubmitted = false;
-                      });
-                    },
-                    child: const Text('Previous'),
-                  )
-                else
-                  const SizedBox(width: 80), // Placeholder for spacing
+                // First row: Previous and Submit buttons
+                Row(
+                  children: [
+                    // Previous button
+                    if (_currentQuestionIndex > 0)
+                      Expanded(
+                        flex: 1,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _currentQuestionIndex--;
+                              _selectedOptionIndex = null;
+                              _answerSubmitted = false;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                          ),
+                          child: const Text(
+                            'Previous',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
 
-                ElevatedButton(
-                  onPressed: _selectedOptionIndex == null || _answerSubmitted
-                      ? null
-                      : _checkAnswer,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-                  ),
-                  child: const Text('Submit'),
+                    if (_currentQuestionIndex > 0) const SizedBox(width: 12),
+
+                    // Submit button
+                    Expanded(
+                      flex: 1,
+                      child: ElevatedButton(
+                        onPressed: _selectedOptionIndex == null || _answerSubmitted
+                            ? null
+                            : _checkAnswer,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(vertical: 12.0),
+                        ),
+                        child: const Text(
+                          'Submit',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
-                if (_answerSubmitted)
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        if (_currentQuestionIndex < widget.questions!.length - 1) {
-                          _currentQuestionIndex++;
-                          _selectedOptionIndex = null;
-                          _answerSubmitted = false;
-                        } else {
-                          _quizCompleted = true;
-                          _calculateAndSubmitScore();
-                        }
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                // Second row: Next/Finish button (only visible after submitting)
+                if (_answerSubmitted) ...[
+                  const SizedBox(height: 12.0),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          if (_currentQuestionIndex < widget.questions!.length - 1) {
+                            _currentQuestionIndex++;
+                            _selectedOptionIndex = null;
+                            _answerSubmitted = false;
+                          } else {
+                            _quizCompleted = true;
+                            _calculateAndSubmitScore();
+                          }
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 14.0),
+                      ),
+                      child: Text(
+                        _currentQuestionIndex < widget.questions!.length - 1
+                            ? 'Next Question'
+                            : 'Finish Quiz',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      _currentQuestionIndex < widget.questions!.length - 1
-                          ? 'Next'
-                          : 'Finish',
-                    ),
-                  )
-                else
-                  const SizedBox(width: 80), // Placeholder for spacing
+                  ),
+                ],
               ],
             ),
           ),

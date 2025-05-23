@@ -39,20 +39,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userId = authProvider.user?["_id"];
-
-      if (userId != null) {
-        // Fetch user data from MongoDB
-        final userData = await MongoDBService.getUserProfile(userId.toHexString());
-        if (userData != null) {
-          setState(() {
-            _userData = userData;
-            _nameController.text = userData['name'] ?? '';
-            _emailController.text = userData['email'] ?? '';
-            _bioController.text = userData['bio'] ?? '';
-          });
-        }
+      // Fetch user data from MongoDB
+      final userData = await MongoDBService.getUserProfile(context);
+      if (userData != null) {
+        setState(() {
+          _userData = userData;
+          _nameController.text = userData['name'] ?? '';
+          _emailController.text = userData['email'] ?? '';
+          _bioController.text = userData['bio'] ?? '';
+        });
       }
     } catch (e) {
       AppLogger.info('Error loading user profile: $e');

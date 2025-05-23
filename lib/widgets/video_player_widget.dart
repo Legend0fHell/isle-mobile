@@ -238,20 +238,6 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             style: TextStyle(fontSize: 16),
             softWrap: true,
           ),
-          const SizedBox(height: 16),
-          FractionallySizedBox(
-            widthFactor: 1.0, // Takes full width
-            child: ElevatedButton(
-              onPressed: () {
-                // Navigate to practice mode
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: const Text('Practice This Sign', style: TextStyle(fontSize: 16)),
-            ),
-          ),
         ],
       ),
     );

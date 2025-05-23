@@ -75,9 +75,14 @@ class LessonCardWidget extends StatelessWidget {
   }
 
   Color _getLessonColor() {
-    switch (lesson.objId) {
-      default:
-        return Colors.purple;
+    double progress = lesson.getProgress();
+
+    if (progress >= 1.0) {
+      return Colors.green; // Completed
+    } else if (progress > 0.0) {
+      return Colors.yellow; // In progress
+    } else {
+      return Colors.lightBlue; // Not started (sky blue)
     }
   }
 
