@@ -20,12 +20,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load();
-  
+
   // Initialize configuration service (handles env variables)
   final configService = ConfigService();
   await configService.initialize();
   AppLogger.info('Configuration initialized');
-  
+
   // Initialize MongoDB connection
   try {
     await MongoDBService.initialize();
@@ -112,6 +112,7 @@ class _MainLayoutState extends State<MainLayout>
   late TabController _tabController;
   int _currentFooterIndex = 0;
   bool _wasLoggedIn = false;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
@@ -125,6 +126,9 @@ class _MainLayoutState extends State<MainLayout>
     // removed listener because it was not necessary, caused unnecessary
     // rebuilds, refreshes of the screens
     _tabController.addListener(() {});
+
+    // Load unread notification count when component initializes
+    _loadUnreadNotificationCount();
   }
 
   @override
@@ -140,6 +144,15 @@ class _MainLayoutState extends State<MainLayout>
         _currentFooterIndex = 0;
         _wasLoggedIn = isLoggedIn;
       });
+
+      // Reload notification count when auth state changes
+      if (isLoggedIn) {
+        _loadUnreadNotificationCount();
+      } else {
+        setState(() {
+          _unreadNotificationCount = 0;
+        });
+      }
     }
   }
 
@@ -147,6 +160,99 @@ class _MainLayoutState extends State<MainLayout>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.isAuthenticated) {
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+      return;
+    }
+
+    try {
+      final count = await _calculateUnreadNotifications();
+      setState(() {
+        _unreadNotificationCount = count;
+      });
+    } catch (e) {
+      print('Error loading unread notification count: $e');
+      setState(() {
+        _unreadNotificationCount = 0;
+      });
+    }
+  }
+
+  Future<int> _calculateUnreadNotifications() async {
+    try {
+      // Get practiced dates (for daily goal notifications)
+      final practicedDates = await _getDailyGoalReachedDates();
+      final createdDate = await _getCreatedDate();
+
+      DateTime now = DateTime.now();
+      DateTime today = DateTime(now.year, now.month, now.day);
+
+      int unreadCount = 0;
+
+      // Count unread daily goal notifications (only today's are unread)
+      for (DateTime practiceDate in practicedDates) {
+        bool isSameDate = practiceDate.year == today.year &&
+            practiceDate.month == today.month &&
+            practiceDate.day == today.day;
+        if (isSameDate) {
+          unreadCount++;
+        }
+      }
+
+      // Count unread practice reminders (only today's is unread)
+      DateTime startDate = DateTime(createdDate.year, createdDate.month, createdDate.day);
+      int daysSinceCreation = today.difference(startDate).inDays;
+
+      // Only today's practice reminder is unread
+      if (daysSinceCreation >= 0) {
+        unreadCount++;
+      }
+
+      return unreadCount;
+    } catch (e) {
+      print('Error calculating unread notifications: $e');
+      return 0;
+    }
+  }
+
+  Future<Set<DateTime>> _getDailyGoalReachedDates() async {
+    try {
+      final progressCollection = await MongoDBService.getProgressCurrentUser(context);
+      Map<DateTime, int> dateCount = {};
+
+      for (var entry in progressCollection) {
+        DateTime fullDate = entry['finished_at'];
+        DateTime justDate = DateTime(fullDate.year, fullDate.month, fullDate.day);
+
+        dateCount.update(justDate, (count) => count + 1, ifAbsent: () => 1);
+      }
+
+      Set<DateTime> frequentDates = dateCount.entries
+          .where((entry) => entry.value >= 3)
+          .map((entry) => entry.key)
+          .toSet();
+
+      return frequentDates;
+    } catch (e) {
+      print('Error getting daily goal reached dates: $e');
+      return {};
+    }
+  }
+
+  Future<DateTime> _getCreatedDate() async {
+    try {
+      final userProfile = await MongoDBService.getUserProfile(context);
+      return DateTime.parse(userProfile?["created_at"]);
+    } catch (e) {
+      print('Error getting created date: $e');
+      return DateTime.now();
+    }
   }
 
   void _handleFooterNavigation(int index) {
@@ -173,7 +279,11 @@ class _MainLayoutState extends State<MainLayout>
         Navigator.of(context).pushNamed('/about');
         break;
       case 1:
-        Navigator.of(context).pushNamed('/notifications');
+      // When navigating to notifications, refresh the count
+        Navigator.of(context).pushNamed('/notifications').then((_) {
+          // Reload count when returning from notifications screen
+          _loadUnreadNotificationCount();
+        });
         break;
       case 2:
         Navigator.of(context).pushNamed('/progress');
@@ -182,6 +292,40 @@ class _MainLayoutState extends State<MainLayout>
         Navigator.of(context).pushNamed('/user');
         break;
     }
+  }
+
+  Widget _buildNotificationIcon() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Icon(Icons.notifications),
+        if (_unreadNotificationCount > 0)
+          Positioned(
+            right: -6,
+            top: -6,
+            child: Container(
+              padding: const EdgeInsets.all(1),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 12,
+                minHeight: 12,
+              ),
+              child: Text(
+                _unreadNotificationCount > 9 ? '9+' : '$_unreadNotificationCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   @override
@@ -226,7 +370,7 @@ class _MainLayoutState extends State<MainLayout>
         children: const [DetectionScreen(), LearnScreen()],
       ),
       bottomNavigationBar:
-          isLoggedIn ? _buildLoggedInFooter() : _buildLoggedOutFooter(),
+      isLoggedIn ? _buildLoggedInFooter() : _buildLoggedOutFooter(),
     );
   }
 
@@ -238,14 +382,14 @@ class _MainLayoutState extends State<MainLayout>
       backgroundColor: Colors.black,
       selectedItemColor: Colors.white,
       unselectedItemColor: Colors.grey,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'About'),
+      items: [
+        const BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'About'),
         BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
+          icon: _buildNotificationIcon(),
           label: 'Notifications',
         ),
-        BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Progress'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        const BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Progress'),
+        const BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
       ],
     );
   }
