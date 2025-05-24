@@ -205,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: () {
                           setState(() {
                             _isConfirmPasswordVisible =
-                                !_isConfirmPasswordVisible;
+                            !_isConfirmPasswordVisible;
                           });
                         },
                       ),
@@ -231,26 +231,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     child:
-                        authProvider.isLoading
-                            ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                            : const Text(
-                              'Create Account',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                    authProvider.isLoading
+                        ? const CircularProgressIndicator(
+                      color: Colors.white,
+                    )
+                        : const Text(
+                      'Create Account',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  // Fixed overflow issue by wrapping with Flexible and using wrap
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text(
                         'Already have an account? ',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
                       ),
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
@@ -259,6 +264,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           style: TextStyle(
                             color: Colors.blue.shade300,
                             fontWeight: FontWeight.bold,
+                            fontSize: 14,
                           ),
                         ),
                       ),

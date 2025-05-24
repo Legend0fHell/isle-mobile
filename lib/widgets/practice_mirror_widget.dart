@@ -10,6 +10,7 @@ class PracticeMirrorWidget extends StatefulWidget {
   final String instructions;
   final String? targetSign;
   final Function(String)? onSignDetected;
+  final bool initialVideoOn;
 
   const PracticeMirrorWidget({
     Key? key,
@@ -17,6 +18,7 @@ class PracticeMirrorWidget extends StatefulWidget {
     required this.instructions,
     this.targetSign,
     this.onSignDetected,
+    required this.initialVideoOn,
   }) : super(key: key);
 
   @override
@@ -30,6 +32,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
   bool _isAssessmentAvailable = false;
   YoutubePlayerController? _youtubeController;
   bool _isPracticeSuccessful = false;
+  bool _hasShownSuccessMessage = false;
 
   @override
   void initState() {
@@ -59,6 +62,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
         _isPracticeSuccessful = false;
         _lastDetectedSign = null;
         _isAssessmentAvailable = false;
+        _hasShownSuccessMessage = false;
       });
     }
   }
@@ -66,6 +70,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
   void _initializeYouTubeController() {
     if (widget.referenceVideoUrl != null && widget.referenceVideoUrl!.isNotEmpty) {
       // Extract YouTube video ID from URL
+      _showReferenceVideo = widget.initialVideoOn;
       final videoId = _extractYouTubeId(widget.referenceVideoUrl!);
       if (videoId != null) {
         _youtubeController = YoutubePlayerController(
@@ -130,12 +135,14 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
                           children: [
                             Icon(Icons.track_changes, color: Colors.blue[600]),
                             const SizedBox(width: 8),
-                            Text(
-                              'Target Sign: ${widget.targetSign}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue[800],
+                            Expanded(
+                              child: Text(
+                                'Target Sign: ${widget.targetSign}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue[800],
+                                ),
                               ),
                             ),
                           ],
@@ -261,19 +268,31 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
       widget.onSignDetected!(result.character);
     }
 
-    // Show different messages based on success
-    if (_isPracticeSuccessful) {
+    // Show success message only once per target sign
+    if (_isPracticeSuccessful && !_hasShownSuccessMessage) {
+      setState(() {
+        _hasShownSuccessMessage = true;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
-              Text('Perfect! You signed "${result.character}" correctly!'),
+              Expanded(
+                child: Text(
+                  'Perfect! You signed "${result.character}" correctly!',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                ),
+              ),
             ],
           ),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }

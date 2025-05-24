@@ -356,6 +356,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           instructions: contentItem.instructions,
           targetSign: _targetSign,
           onSignDetected: _onSignDetected,
+          initialVideoOn: !_isFinished,
         );
       case LessonContentType.interactive:
         return InteractiveExerciseWidget(

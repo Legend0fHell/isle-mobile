@@ -44,8 +44,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (success && mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil(
-        '/detect',
-            (Route<dynamic> route) => false,
+          '/detect',
+              (Route<dynamic> route) => false,
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -168,8 +168,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
                 children: [
                   const Text(
                     'Don\'t have an account? ',
