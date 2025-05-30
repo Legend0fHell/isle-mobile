@@ -81,7 +81,27 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.green,
           useMaterial3: true,
-          scaffoldBackgroundColor: Colors.black,
+          scaffoldBackgroundColor: Colors.white,
+          brightness: Brightness.light,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 0,
+          ),
+        ),
+        // Force light mode regardless of system settings
+        themeMode: ThemeMode.light,
+        // No dark theme provided, but can set one if needed in future
+        darkTheme: ThemeData(
+          primarySwatch: Colors.green,
+          useMaterial3: true,
+          scaffoldBackgroundColor: Colors.white,
+          brightness: Brightness.light,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 0,
+          ),
         ),
         initialRoute: '/detect',
         routes: {
@@ -335,7 +355,7 @@ class _MainLayoutState extends State<MainLayout>
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.white,
         elevation: 0,
         title: TabBar(
           controller: _tabController,
@@ -344,9 +364,9 @@ class _MainLayoutState extends State<MainLayout>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.camera_alt, color: Colors.white),
+                  Icon(Icons.camera_alt, color: Colors.black),
                   SizedBox(width: 8),
-                  Text('Detect', style: TextStyle(color: Colors.white)),
+                  Text('Detect', style: TextStyle(color: Colors.black)),
                 ],
               ),
             ),
@@ -354,14 +374,14 @@ class _MainLayoutState extends State<MainLayout>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.menu_book, color: Colors.white),
+                  Icon(Icons.menu_book, color: Colors.black),
                   SizedBox(width: 8),
-                  Text('Learn', style: TextStyle(color: Colors.white)),
+                  Text('Learn', style: TextStyle(color: Colors.black)),
                 ],
               ),
             ),
           ],
-          indicatorColor: Colors.white,
+          indicatorColor: Colors.green,
           dividerColor: Colors.transparent,
         ),
       ),
@@ -379,8 +399,8 @@ class _MainLayoutState extends State<MainLayout>
       currentIndex: _currentFooterIndex,
       onTap: _handleFooterNavigation,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.white,
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.green,
       unselectedItemColor: Colors.grey,
       items: [
         const BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'About'),
@@ -399,8 +419,8 @@ class _MainLayoutState extends State<MainLayout>
       currentIndex: _currentFooterIndex,
       onTap: _handleFooterNavigation,
       type: BottomNavigationBarType.fixed,
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.white,
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.green,
       unselectedItemColor: Colors.grey,
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.info_outline), label: 'About'),

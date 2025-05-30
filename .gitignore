@@ -100,3 +100,5 @@ app.*.map.json
 
 extract_meta.py
 .python-version
+
+/references

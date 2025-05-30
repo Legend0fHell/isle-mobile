@@ -82,7 +82,7 @@ class HandLandmarkService extends ChangeNotifier {
   bool _isProcessing = false;
   
   // Simple rate limiting
-  DateTime _lastProcessedTime = DateTime.now();
+  final DateTime _lastProcessedTime = DateTime.now();
   static const Duration _processInterval = Duration(milliseconds: 200);
 
   // Getters
@@ -170,12 +170,7 @@ class HandLandmarkService extends ChangeNotifier {
       return;
     }
 
-    // Rate limiting
-    final now = DateTime.now();
-    if (now.difference(_lastProcessedTime) < _processInterval) {
-      return;
-    }
-    _lastProcessedTime = now;
+    // Set processing flag to prevent concurrent processing
     _isProcessing = true;
 
     try {
