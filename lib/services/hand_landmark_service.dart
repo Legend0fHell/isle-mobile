@@ -80,10 +80,6 @@ class HandLandmarkService extends ChangeNotifier {
   dynamic _currentLandmarks;
   bool _isEmulatorMode = false;
   bool _isProcessing = false;
-  
-  // Simple rate limiting
-  final DateTime _lastProcessedTime = DateTime.now();
-  static const Duration _processInterval = Duration(milliseconds: 200);
 
   // Getters
   bool get isInitialized => _isInitialized && !_isDisposed;

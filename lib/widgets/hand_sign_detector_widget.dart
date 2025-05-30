@@ -332,7 +332,7 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
       final processingDuration = DateTime.now().difference(cycleStartTime).inMilliseconds;
       
       // Target cycle time is 80ms
-      final targetCycleTime = 66;
+      final targetCycleTime = 80;
       
       // Calculate wait time (if processing was faster than target)
       final waitTime = max(0, targetCycleTime - processingDuration);
@@ -735,12 +735,15 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
     bool isFrontCamera = _cameraService.controller!.description.lensDirection == CameraLensDirection.front;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Expanded(
+        // Camera preview with detection overlay as a stack
+        SizedBox(
+          width: previewSize,
+          height: previewSize,
           child: Stack(
-            fit: StackFit.expand,
             children: [
-              // Simple camera preview with square crop
+              // Camera preview
               Center(
                 child: CameraPreviewContainer(
                   controller: _cameraService.controller!,
@@ -748,195 +751,193 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
                   containerSize: previewSize,
                 ),
               ),
-
-              // Processing area indicator with animated feedback
+              
+              // Detection feedback overlay
               if (widget.showDetectionFeedback)
-                Center(
-                  child: AnimatedBuilder(
-                    animation: _animationController,
-                    builder: (context, child) {
-                      return Container(
-                        width: previewSize,
-                        height: previewSize,
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: _borderColorAnimation.value ?? Colors.yellow,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
+                AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return Container(
+                      width: previewSize,
+                      height: previewSize,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _borderColorAnimation.value ?? Colors.yellow,
+                          width: 2,
                         ),
-                        child: Stack(
-                          children: [
-                            // Only show guidance when no hand is detected and guidance is enabled
-                            if (_lastRawRecognition == null && widget.showGuidance)
-                              Center(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Stack(
+                        children: [
+                          // Only show guidance when no hand is detected and guidance is enabled
+                          if (_lastRawRecognition == null && widget.showGuidance)
+                            Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.front_hand_outlined,
+                                    color:
+                                        _borderColorAnimation.value ??
+                                        Colors.yellow,
+                                    size: 50,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                          // Draw hand landmarks if enabled and landmarks are available
+                          // Use ClipRect to constrain landmarks to the camera view area
+                          if (widget.showHandLandmarks && handLandmarks != null)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                width: previewSize,
+                                height: previewSize,
+                                child: CustomPaint(
+                                  painter: HandLandmarkPainter(
+                                    landmarks: handLandmarks,
+                                    containerSize: previewSize,
+                                    isFrontCamera: isFrontCamera,
+                                  ),
+                                  size: Size(previewSize, previewSize),
+                                ),
+                              ),
+                            ),
+                            
+                          // Slim HUD positioned at the top right of the camera area
+                          if (widget.showRecognitionInfo)
+                            Positioned(
+                              top: 16,
+                              right: 16,
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                width: 180,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _showFlash 
+                                    ? Colors.lightBlue.withOpacity(0.3) 
+                                    : Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                                 child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
-                                      Icons.front_hand_outlined,
-                                      color:
-                                          _borderColorAnimation.value ??
-                                          Colors.yellow,
-                                      size: 50,
+                                    // First line: Model status and detection
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Delegate type
+                                        Text(
+                                          _handLandmarkService.delegateType,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        // Detection with confidence
+                                        _lastRawRecognition != null 
+                                          ? Row(
+                                              children: [
+                                                Text(
+                                                  _lastRawRecognition!.character,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 20,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  "(${(_lastRawRecognition!.confidence * 100).round()}%)",
+                                                  style: const TextStyle(
+                                                    color: Colors.yellow,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : const Text(
+                                              "...",
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                      ],
+                                    ),
+                                    
+                                    const SizedBox(height: 0),
+                                    
+                                    // Two rows of progress bars
+                                    Row(
+                                      children: [
+                                        // Right-aligned confidence bar (under detection result)
+                                        Expanded(
+                                          flex: 1,
+                                          child: Container(
+                                            height: 3,
+                                            alignment: Alignment.centerRight,
+                                            child: Container(
+                                              width: 75,
+                                              height: 3,
+                                              decoration: BoxDecoration(
+                                                color: Colors.grey.shade800,
+                                                borderRadius: BorderRadius.circular(1.5),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  AnimatedContainer(
+                                                    duration: const Duration(milliseconds: 300),
+                                                    width: 75 * _confidenceBarValue,
+                                                    height: 3,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.yellow,
+                                                      borderRadius: BorderRadius.circular(1.5),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    
+                                    const SizedBox(height: 8),
+                                    
+                                    // Full-width consecutive bar
+                                    Container(
+                                      height: 3,
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.shade800,
+                                        borderRadius: BorderRadius.circular(1.5),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          AnimatedContainer(
+                                            duration: const Duration(milliseconds: 300),
+                                            width: 160 * _consecutiveBarValue,
+                                            height: 3,
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue,
+                                              borderRadius: BorderRadius.circular(1.5),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                              
-                            // Draw hand landmarks if enabled and landmarks are available
-                            // Use ClipRect to constrain landmarks to the camera view area
-                            if (widget.showHandLandmarks && handLandmarks != null)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: SizedBox(
-                                  width: previewSize,
-                                  height: previewSize,
-                                  child: CustomPaint(
-                                    painter: HandLandmarkPainter(
-                                      landmarks: handLandmarks,
-                                      containerSize: previewSize,
-                                      isFrontCamera: isFrontCamera,
-                                    ),
-                                    size: Size(previewSize, previewSize),
-                                  ),
-                                ),
-                              ),
-                              
-                            // Slim HUD positioned at the top right of the camera area
-                            if (widget.showRecognitionInfo)
-                              Positioned(
-                                top: 16,
-                                right: 16,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  width: 180,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: _showFlash 
-                                      ? Colors.lightBlue.withOpacity(0.3) 
-                                      : Colors.black54,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // First line: Model status and detection
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          // Delegate type
-                                          Text(
-                                            _handLandmarkService.delegateType,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          // Detection with confidence
-                                          _lastRawRecognition != null 
-                                            ? Row(
-                                                children: [
-                                                  Text(
-                                                    _lastRawRecognition!.character,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 20,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    "(${(_lastRawRecognition!.confidence * 100).round()}%)",
-                                                    style: const TextStyle(
-                                                      color: Colors.yellow,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                ],
-                                              )
-                                            : const Text(
-                                                "...",
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                        ],
-                                      ),
-                                      
-                                      const SizedBox(height: 0),
-                                      
-                                      // Two rows of progress bars
-                                      Row(
-                                        children: [
-                                          // Right-aligned confidence bar (under detection result)
-                                          Expanded(
-                                            flex: 1,
-                                            child: Container(
-                                              height: 3,
-                                              alignment: Alignment.centerRight,
-                                              child: Container(
-                                                width: 75,
-                                                height: 3,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade800,
-                                                  borderRadius: BorderRadius.circular(1.5),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    AnimatedContainer(
-                                                      duration: const Duration(milliseconds: 300),
-                                                      width: 75 * _confidenceBarValue,
-                                                      height: 3,
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.yellow,
-                                                        borderRadius: BorderRadius.circular(1.5),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      
-                                      const SizedBox(height: 8),
-                                      
-                                      // Full-width consecutive bar
-                                      Container(
-                                        height: 3,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.shade800,
-                                          borderRadius: BorderRadius.circular(1.5),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            AnimatedContainer(
-                                              duration: const Duration(milliseconds: 300),
-                                              width: 160 * _consecutiveBarValue,
-                                              height: 3,
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue,
-                                                borderRadius: BorderRadius.circular(1.5),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
             ],
           ),

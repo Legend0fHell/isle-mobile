@@ -156,7 +156,7 @@ class HandLandmarkDetector(
             json.put("isLeftHand", isLeftHand)
             
             // Log successful detection
-            Log.d(TAG, "[NativeAndr] Successful: ${handLandmarkList.size} landmarks, inf: $inferenceTime ms")
+            // Log.d(TAG, "[NativeAndr] Successful: ${handLandmarkList.size} landmarks, inf: $inferenceTime ms")
         } catch (e: Exception) {
             // If any error occurs during parsing, return an empty result
             Log.e(TAG, "Error parsing landmarks: ${e.message}")
