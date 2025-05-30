@@ -466,10 +466,9 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
             }
           });
           
-          // Reset consecutive count after accepting
           _lastDetectedChar = null;
-          _consecutiveCount = 0;
-          _animateConsecutiveBar(0);
+          _consecutiveCount = widget.consecutiveThreshold;
+          _animateConsecutiveBar(1);
         }
       } else {
         // Different character detected, reset counter
@@ -535,7 +534,7 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
     // Cancel any previous animations
     const animationDuration = Duration(milliseconds: 200);
     
-    final timer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
+    final timer = Timer.periodic(const Duration(milliseconds: 10), (timer) {
       if (!mounted || _isDisposed) {
         timer.cancel();
         return;
@@ -548,7 +547,7 @@ class _HandSignDetectorWidgetState extends State<HandSignDetectorWidget>
           _consecutiveBarValue = targetValue;
           timer.cancel();
         } else {
-          _consecutiveBarValue += diff * 0.2; // Move 20% closer each frame
+          _consecutiveBarValue += diff * 0.6; // Move 20% closer each frame
         }
       });
     });

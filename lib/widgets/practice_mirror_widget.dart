@@ -13,13 +13,13 @@ class PracticeMirrorWidget extends StatefulWidget {
   final bool initialVideoOn;
 
   const PracticeMirrorWidget({
-    Key? key,
+    super.key,
     this.referenceVideoUrl,
     required this.instructions,
     this.targetSign,
     this.onSignDetected,
     required this.initialVideoOn,
-  }) : super(key: key);
+  });
 
   @override
   _PracticeMirrorWidgetState createState() => _PracticeMirrorWidgetState();
@@ -243,6 +243,7 @@ class _PracticeMirrorWidgetState extends State<PracticeMirrorWidget> {
             showGuidance: true,
             confidenceThreshold: 0.65,
             controller: _handSignDetectorController,
+            consecutiveThreshold: 8,
             onHandSignDetected: _onHandSignDetected,
             bottomWidget: null, // No bottom widget as we manage the layout
           ),
